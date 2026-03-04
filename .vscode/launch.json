@@ -1,0 +1,82 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter iPhone (Debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "00008130-0009189C1A32001C",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define-from-file=.env.production.json"
+      ]
+    },
+    {
+      "name": "Flutter iPad (Debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "00008020-000A38103CE1002E",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define-from-file=.env.production.json"
+      ]
+    },
+    {
+      "name": "Flutter iPhone (Profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "00008130-0009189C1A32001C",
+      "flutterMode": "profile",
+      "toolArgs": [
+        "--dart-define-from-file=.env.production.json"
+      ]
+    },
+    {
+      "name": "Flutter iPhone (Release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "00008130-0009189C1A32001C",
+      "flutterMode": "release",
+      "toolArgs": [
+        "--dart-define-from-file=.env.production.json"
+      ]
+    },
+    {
+      "name": "Flutter Android (Debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "R5CTC03Z49X",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define-from-file=.env.production.json"
+      ]
+    },
+    {
+      "name": "Flutter Android (Profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "R5CTC03Z49X",
+      "flutterMode": "profile",
+      "toolArgs": [
+        "--dart-define-from-file=.env.production.json"
+      ]
+    },
+    {
+      "name": "Flutter Android (Release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "R5CTC03Z49X",
+      "flutterMode": "release",
+      "toolArgs": [
+        "--dart-define-from-file=.env.production.json"
+      ]
+    }
+  ]
+}

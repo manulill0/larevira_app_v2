@@ -1,0 +1,5 @@
+{
+  "dart.openDevTools": "flutter",
+  "dart.previewFlutterUiGuides": true,
+  "editor.formatOnSave": true
+}

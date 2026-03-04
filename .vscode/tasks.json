@@ -1,0 +1,156 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Workspace: Prepare",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Codegen: Build",
+        "Flutter: Analyze"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Flutter: Analyze",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "analyze"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$dart-analyze"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Codegen: Build",
+      "type": "shell",
+      "command": "dart",
+      "args": [
+        "run",
+        "build_runner",
+        "build",
+        "--delete-conflicting-outputs"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Build: Android App Bundle (Play Store)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "appbundle",
+        "--release",
+        "--dart-define-from-file=.env.production.json"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Workspace: Prepare"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Build: Android APK (Release)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "apk",
+        "--release",
+        "--dart-define-from-file=.env.production.json"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Workspace: Prepare"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Build: iOS IPA (App Store)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "ipa",
+        "--release",
+        "--export-method=app-store",
+        "--dart-define-from-file=.env.production.json"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Workspace: Prepare"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Build: iOS (No Codesign)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "ios",
+        "--release",
+        "--no-codesign",
+        "--dart-define-from-file=.env.production.json"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Workspace: Prepare"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "Build: Stores (Android + iOS)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build: Android App Bundle (Play Store)",
+        "Build: iOS IPA (App Store)"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    }
+  ]
+}

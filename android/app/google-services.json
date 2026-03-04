@@ -1,0 +1,66 @@
+{
+  "project_info": {
+    "project_number": "1072879556252",
+    "firebase_url": "https://la-revira.firebaseio.com",
+    "project_id": "la-revira",
+    "storage_bucket": "la-revira.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1072879556252:android:2a18c8efb2342bd187bf59",
+        "android_client_info": {
+          "package_name": "com.iguanadev.larevira"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnAh0avlgy1TxLaloZafiPP63lJ7AFcBk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1072879556252:android:a3b4d7753655d47c",
+        "android_client_info": {
+          "package_name": "com.newsmedia360.larevira"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1072879556252-mjaisdmvfnb3fj0nfm0gv4osbmnuiufs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.newsmedia360.larevira",
+            "certificate_hash": "1c13442dc55e073271d4db8c003360a060030beb"
+          }
+        },
+        {
+          "client_id": "1072879556252-tepo5bvtjjj1rnkv1oojek0p7v1839i8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.newsmedia360.larevira",
+            "certificate_hash": "daad98a6a54c1491eb48c8332c04b0839528eae2"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnAh0avlgy1TxLaloZafiPP63lJ7AFcBk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
