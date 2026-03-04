@@ -80,7 +80,7 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage> {
         scheduleEntries.isNotEmpty;
     final showsFloatingHourSelector = hasFloatingHourSelectorSlot;
     final sectionPadding = _currentSection == 1
-        ? EdgeInsets.only(bottom: hasFloatingHourSelectorSlot ? 126 : 24)
+        ? EdgeInsets.zero
         : EdgeInsets.fromLTRB(
             16,
             8,
@@ -718,22 +718,7 @@ class _MapSectionState extends State<_MapSection> {
   CircleAnnotationManager? _markerManager;
   int _syncGeneration = 0;
   bool _showLegend = false;
-
-  List<_MapEventPointState> get _eventStates {
-    final selectedTime = widget.selectedTime;
-    if (selectedTime == null || widget.entries.isEmpty) {
-      return const [];
-    }
-
-    return _entriesForMoment(widget.entries, selectedTime)
-        .map(
-          (entry) => _MapEventPointState(
-            event: entry.event,
-            point: entry.schedulePoint,
-          ),
-        )
-        .toList(growable: false);
-  }
+  static const Color _officialCourseFallbackColor = Color(0xFF2E7D32);
 
   List<MapPoint> _routeMapPoints(DayProcessionEvent event) {
     return event.routePoints
@@ -744,55 +729,194 @@ class _MapSectionState extends State<_MapSection> {
         .toList(growable: false);
   }
 
+  bool _isEventVisibleAt(DayProcessionEvent event, DateTime selectedTime) {
+    final timedSchedule = event.schedulePoints
+        .where((point) => point.hasLocation && point.plannedAt != null)
+        .toList(growable: false)
+      ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
+
+    if (timedSchedule.isEmpty) {
+      return true;
+    }
+
+    final startsAt = timedSchedule.first.plannedAt!;
+    final endsAt = timedSchedule.last.plannedAt!.add(
+      Duration(minutes: (event.passDurationMinutes ?? 0).clamp(0, 240)),
+    );
+
+    return !selectedTime.isBefore(startsAt) && !selectedTime.isAfter(endsAt);
+  }
+
+  List<_VisibleRoute> _visibleRoutes(DateTime selectedTime) {
+    return widget.detail.processionEvents
+        .where((event) => _isEventVisibleAt(event, selectedTime))
+        .map(
+          (event) => _VisibleRoute(
+            color: _parseColor(event.brotherhoodColorHex) ??
+                Theme.of(context).colorScheme.primary,
+            points: _routeMapPoints(event),
+          ),
+        )
+        .where((route) => route.points.length >= 2)
+        .toList(growable: false);
+  }
+
+  _VisibleRoute? _officialCourseRoute() {
+    final points = widget.detail.officialRoutePoints
+        .where((point) => point.hasLocation)
+        .map(
+          (point) => MapPoint(latitude: point.latitude!, longitude: point.longitude!),
+        )
+        .toList(growable: false);
+    if (points.length < 2) {
+      return null;
+    }
+
+    return _VisibleRoute(
+      color: (_parseArgbColor(widget.detail.officialRouteArgb) ??
+              _officialCourseFallbackColor)
+          .withValues(alpha: 0.9),
+      points: points,
+    );
+  }
+
+  List<_ActiveTrack> _activeTracksFor(DateTime selectedTime) {
+    final result = <_ActiveTrack>[];
+
+    for (final event in widget.detail.processionEvents) {
+      if (!_isEventVisibleAt(event, selectedTime)) {
+        continue;
+      }
+
+      final route = _routeMapPoints(event);
+      if (route.length < 2) {
+        continue;
+      }
+
+      final timedSchedule = event.schedulePoints
+          .where((point) => point.hasLocation && point.plannedAt != null)
+          .toList(growable: false)
+        ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
+      if (timedSchedule.isEmpty) {
+        continue;
+      }
+
+      final timedRoutePoints = <_TimedRoutePoint>[];
+      var searchFrom = 0;
+      for (final point in timedSchedule) {
+        final routeIndex = _nearestRouteIndexFrom(
+          route,
+          MapPoint(latitude: point.latitude!, longitude: point.longitude!),
+          searchFrom,
+        );
+        searchFrom = routeIndex;
+        timedRoutePoints.add(
+          _TimedRoutePoint(
+            time: point.plannedAt!,
+            routeIndex: routeIndex.toDouble(),
+          ),
+        );
+      }
+
+      final headIndex = _routeIndexAtTime(timedRoutePoints, selectedTime);
+      if (headIndex == null) {
+        continue;
+      }
+
+      final passMinutes = (event.passDurationMinutes ?? 0).clamp(0, 240);
+      final routeEnd = timedRoutePoints.last.time;
+      if (passMinutes > 0 &&
+          selectedTime.isAfter(routeEnd.add(Duration(minutes: passMinutes)))) {
+        continue;
+      }
+
+      final tailTime = selectedTime.subtract(Duration(minutes: passMinutes));
+      final tailIndex = passMinutes <= 0
+          ? headIndex
+          : (_routeIndexAtTime(timedRoutePoints, tailTime) ??
+              timedRoutePoints.first.routeIndex);
+
+      final segment = _sliceRoute(route, tailIndex, headIndex);
+      if (segment.length < 2) {
+        continue;
+      }
+
+      result.add(
+        _ActiveTrack(
+          color: _parseColor(event.brotherhoodColorHex) ??
+              Theme.of(context).colorScheme.primary,
+          points: segment,
+          head: _pointAtIndex(route, headIndex),
+        ),
+      );
+    }
+
+    return result;
+  }
+
   List<MapPoint> get _currentMarkerMapPoints {
     final selectedTime = widget.selectedTime;
     if (selectedTime == null) {
       return const [];
     }
-
-    return _eventStates
-        .where(
-          (state) =>
-              state.point?.hasLocation == true &&
-              _isEventOnStreet(state.event, selectedTime),
-        )
-        .map(
-          (state) => MapPoint(
-            latitude: state.point!.latitude!,
-            longitude: state.point!.longitude!,
-          ),
-        )
+    return _activeTracksFor(selectedTime)
+        .map((track) => track.head)
         .toList(growable: false);
   }
 
   List<MapPoint> get _focusPoints {
-    final points = <MapPoint>[
-      ..._currentMarkerMapPoints,
-    ];
     final selectedTime = widget.selectedTime;
     if (selectedTime == null) {
-      return points;
+      return const [];
     }
 
-    for (final event in widget.detail.processionEvents) {
-      if (!_isEventOnStreet(event, selectedTime)) {
-        continue;
-      }
-      points.addAll(_routeMapPoints(event));
+    final activeTracks = _activeTracksFor(selectedTime);
+    final activePoints = activeTracks.expand((track) => track.points).toList();
+    if (activePoints.isNotEmpty) {
+      return activePoints;
     }
 
-    return points;
+    final visibleRoutes = _visibleRoutes(selectedTime);
+    final visiblePoints = visibleRoutes.expand((route) => route.points).toList();
+    final officialRoute = _officialCourseRoute();
+    final fallback = [
+      ...visiblePoints,
+      ...?officialRoute?.points,
+    ];
+    if (fallback.isNotEmpty) {
+      return fallback;
+    }
+
+    return _allRoutePoints();
+  }
+
+  List<MapPoint> _allRoutePoints() {
+    return widget.detail.processionEvents
+        .expand((event) => event.routePoints)
+        .where((point) => point.hasLocation)
+        .map(
+          (point) => MapPoint(latitude: point.latitude!, longitude: point.longitude!),
+        )
+        .toList(growable: false);
   }
 
   List<_RouteLegendItem> get _legendItems {
     final items = <_RouteLegendItem>[];
+    final officialRoute = _officialCourseRoute();
+    if (officialRoute != null) {
+      items.add(
+        _RouteLegendItem(
+          label: 'Carrera oficial',
+          color: officialRoute.color,
+        ),
+      );
+    }
     for (final event in widget.detail.processionEvents) {
-      final color =
-          _parseColor(event.brotherhoodColorHex) ?? Theme.of(context).colorScheme.primary;
       items.add(
         _RouteLegendItem(
           label: event.brotherhoodName,
-          color: color,
+          color: _parseColor(event.brotherhoodColorHex) ??
+              Theme.of(context).colorScheme.primary,
         ),
       );
     }
@@ -803,15 +927,12 @@ class _MapSectionState extends State<_MapSection> {
     final syncGeneration = ++_syncGeneration;
     final brotherhoodRouteManager = _brotherhoodRouteManager;
     final markerManager = _markerManager;
-    if (brotherhoodRouteManager == null ||
-        markerManager == null) {
-      return;
-    }
     final selectedTime = widget.selectedTime;
-    if (selectedTime == null) {
+    if (brotherhoodRouteManager == null ||
+        markerManager == null ||
+        selectedTime == null) {
       return;
     }
-    final fallbackPrimary = Theme.of(context).colorScheme.primary;
 
     try {
       await brotherhoodRouteManager.deleteAll();
@@ -820,61 +941,59 @@ class _MapSectionState extends State<_MapSection> {
         return;
       }
 
-      for (final event in widget.detail.processionEvents) {
-        if (!_isEventOnStreet(event, selectedTime)) {
-          continue;
-        }
+      final visibleRoutes = _visibleRoutes(selectedTime);
+      final officialRoute = _officialCourseRoute();
+      final activeTracks = _activeTracksFor(selectedTime);
 
-        final routePoints = _routeMapPoints(event);
-        if (routePoints.length < 2) {
-          continue;
-        }
-
-        final accent = (_parseArgbColor(event.routeArgb) ??
-                _parseColor(event.brotherhoodColorHex) ??
-                fallbackPrimary)
-            .withValues(alpha: 0.84);
+      for (final route in visibleRoutes) {
         await brotherhoodRouteManager.create(
           PolylineAnnotationOptions(
             geometry: LineString(
-              coordinates: routePoints
+              coordinates: route.points
                   .map((point) => point.toPoint().coordinates)
                   .toList(growable: false),
             ),
-            lineColor: accent.toARGB32(),
-            lineWidth: 3.5,
-            lineOpacity: 0.95,
+            lineColor: route.color.withValues(alpha: 0.16).toARGB32(),
+            lineWidth: 3,
           ),
         );
-        if (!mounted || syncGeneration != _syncGeneration) {
-          return;
-        }
       }
 
-      for (final state in _eventStates) {
-        final point = state.point;
-        if (point?.hasLocation != true ||
-            !_isEventOnStreet(state.event, selectedTime)) {
-          continue;
-        }
+      if (officialRoute != null) {
+        await brotherhoodRouteManager.create(
+          PolylineAnnotationOptions(
+            geometry: LineString(
+              coordinates: officialRoute.points
+                  .map((point) => point.toPoint().coordinates)
+                  .toList(growable: false),
+            ),
+            lineColor: officialRoute.color.withValues(alpha: 0.62).toARGB32(),
+            lineWidth: 9,
+          ),
+        );
+      }
 
-        final accent =
-            _parseColor(state.event.brotherhoodColorHex) ?? fallbackPrimary;
+      for (final track in activeTracks) {
+        await brotherhoodRouteManager.create(
+          PolylineAnnotationOptions(
+            geometry: LineString(
+              coordinates: track.points
+                  .map((point) => point.toPoint().coordinates)
+                  .toList(growable: false),
+            ),
+            lineColor: track.color.toARGB32(),
+            lineWidth: 5,
+          ),
+        );
         await markerManager.create(
           CircleAnnotationOptions(
-            geometry: MapPoint(
-              latitude: point!.latitude!,
-              longitude: point.longitude!,
-            ).toPoint(),
-            circleColor: accent.toARGB32(),
-            circleRadius: 6.5,
+            geometry: track.head.toPoint(),
+            circleColor: track.color.toARGB32(),
+            circleRadius: 9,
             circleStrokeColor: Colors.white.toARGB32(),
             circleStrokeWidth: 2,
           ),
         );
-        if (!mounted || syncGeneration != _syncGeneration) {
-          return;
-        }
       }
     } on PlatformException catch (error) {
       if (kDebugMode) {
@@ -948,21 +1067,8 @@ class _MapSectionState extends State<_MapSection> {
       );
     }
 
-    final visibleCount = _eventStates
-        .where(
-          (state) =>
-              state.point?.hasLocation == true &&
-              _isEventOnStreet(state.event, selectedTime),
-        )
-        .length;
+    final activeTracks = _activeTracksFor(selectedTime);
     final hasGeometry = _focusPoints.isNotEmpty;
-
-    if (!hasGeometry) {
-      return const _InfoCard(
-        title: 'Sin geometria de itinerarios',
-        message: 'No hay coordenadas sincronizadas para esta jornada.',
-      );
-    }
 
     if (kMapboxAccessToken.isEmpty) {
       return const _InfoCard(
@@ -978,26 +1084,31 @@ class _MapSectionState extends State<_MapSection> {
             insets.top -
             insets.bottom -
             kToolbarHeight -
-            kBottomNavigationBarHeight -
-            88)
+            kBottomNavigationBarHeight)
         .clamp(360.0, 1200.0);
 
     return SizedBox(
       height: mapHeight,
       child: Stack(
         children: [
-          MapWidget(
-            key: const ValueKey('day-detail-map'),
-            styleUri: mapboxStyleUriForBrightness(
-              Theme.of(context).brightness,
+          if (hasGeometry)
+            MapWidget(
+              key: const ValueKey('day-detail-map'),
+              styleUri: mapboxStyleUriForBrightness(
+                Theme.of(context).brightness,
+              ),
+              gestureRecognizers: kMapGestureRecognizers,
+              cameraOptions: cameraForPoints(
+                _focusPoints,
+                fallbackZoom: 13.8,
+              ),
+              onMapCreated: _onMapCreated,
+            )
+          else
+            const _InfoCard(
+              title: 'Sin geometria de itinerarios',
+              message: 'No hay coordenadas sincronizadas para esta jornada.',
             ),
-            gestureRecognizers: kMapGestureRecognizers,
-            cameraOptions: cameraForPoints(
-              _focusPoints,
-              fallbackZoom: 13.8,
-            ),
-            onMapCreated: _onMapCreated,
-          ),
           Positioned(
             left: 12,
             top: 12,
@@ -1018,22 +1129,6 @@ class _MapSectionState extends State<_MapSection> {
                   ),
                   label: Text(
                     _showLegend ? 'Ocultar leyenda' : 'Mostrar leyenda',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    child: Text(
-                      '${_formatTimeLabel(selectedTime)} · $visibleCount en mapa',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
                   ),
                 ),
                 if (_showLegend) ...[
@@ -1091,39 +1186,120 @@ class _MapSectionState extends State<_MapSection> {
               ],
             ),
           ),
+          if (activeTracks.isEmpty)
+            const Center(
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Text(
+                    'No hay ninguna procesión en la calle.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  bool _isEventOnStreet(DayProcessionEvent event, DateTime selectedTime) {
-    final timedPoints = event.schedulePoints
-        .where((point) => point.plannedAt != null)
-        .toList(growable: false)
-      ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
+  int _nearestRouteIndexFrom(
+    List<MapPoint> route,
+    MapPoint target,
+    int startIndex,
+  ) {
+    var bestIndex = startIndex;
+    var bestDistance = double.infinity;
+    for (var i = startIndex; i < route.length; i++) {
+      final latDiff = route[i].latitude - target.latitude;
+      final lngDiff = route[i].longitude - target.longitude;
+      final sqDistance = (latDiff * latDiff) + (lngDiff * lngDiff);
+      if (sqDistance < bestDistance) {
+        bestDistance = sqDistance;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
+  }
 
-    if (timedPoints.isNotEmpty) {
-      final first = timedPoints.first.plannedAt!;
-      final last = timedPoints.last.plannedAt!;
-      return !selectedTime.isBefore(first) && !selectedTime.isAfter(last);
+  double? _routeIndexAtTime(List<_TimedRoutePoint> points, DateTime at) {
+    if (points.isEmpty) {
+      return null;
+    }
+    if (at.isBefore(points.first.time)) {
+      return null;
+    }
+    if (!at.isBefore(points.last.time)) {
+      return points.last.routeIndex.toDouble();
     }
 
-    final status = event.status.toLowerCase();
-    if (status.contains('recogid') ||
-        status.contains('finaliz') ||
-        status.contains('complete') ||
-        status.contains('finish')) {
-      return false;
-    }
-    if (status.contains('no ha salido') ||
-        status.contains('pendiente') ||
-        status.contains('scheduled') ||
-        status.contains('programad') ||
-        status.contains('templo')) {
-      return false;
+    for (var i = 0; i < points.length - 1; i++) {
+      final a = points[i];
+      final b = points[i + 1];
+      if (at.isBefore(a.time) || at.isAfter(b.time)) {
+        continue;
+      }
+
+      final totalMs = b.time.difference(a.time).inMilliseconds;
+      if (totalMs <= 0) {
+        return b.routeIndex.toDouble();
+      }
+      final partMs = at.difference(a.time).inMilliseconds.clamp(0, totalMs);
+      final ratio = partMs / totalMs;
+      return a.routeIndex + ((b.routeIndex - a.routeIndex) * ratio);
     }
 
-    return true;
+    return points.last.routeIndex.toDouble();
+  }
+
+  MapPoint _pointAtIndex(List<MapPoint> route, double index) {
+    final lastIndex = route.length - 1;
+    if (lastIndex <= 0) {
+      return route.first;
+    }
+
+    final clamped = index.clamp(0, lastIndex.toDouble());
+    final low = clamped.floor();
+    final high = clamped.ceil();
+    if (low == high) {
+      return route[low];
+    }
+
+    final ratio = clamped - low;
+    final start = route[low];
+    final end = route[high];
+    return MapPoint(
+      latitude: start.latitude + ((end.latitude - start.latitude) * ratio),
+      longitude: start.longitude + ((end.longitude - start.longitude) * ratio),
+    );
+  }
+
+  List<MapPoint> _sliceRoute(List<MapPoint> route, double from, double to) {
+    if (route.isEmpty) {
+      return const [];
+    }
+
+    var start = from;
+    var end = to;
+    if (end < start) {
+      final temp = start;
+      start = end;
+      end = temp;
+    }
+
+    final startPoint = _pointAtIndex(route, start);
+    final endPoint = _pointAtIndex(route, end);
+    final startFloor = start.floor();
+    final endCeil = end.ceil();
+
+    final points = <MapPoint>[startPoint];
+    for (var i = startFloor + 1; i < endCeil; i++) {
+      if (i >= 0 && i < route.length) {
+        points.add(route[i]);
+      }
+    }
+    points.add(endPoint);
+    return points;
   }
 }
 
@@ -1169,14 +1345,36 @@ class _RouteLegendChip extends StatelessWidget {
   }
 }
 
-class _MapEventPointState {
-  const _MapEventPointState({
-    required this.event,
-    required this.point,
+class _VisibleRoute {
+  const _VisibleRoute({
+    required this.color,
+    required this.points,
   });
 
-  final DayProcessionEvent event;
-  final SchedulePoint? point;
+  final Color color;
+  final List<MapPoint> points;
+}
+
+class _ActiveTrack {
+  const _ActiveTrack({
+    required this.color,
+    required this.points,
+    required this.head,
+  });
+
+  final Color color;
+  final List<MapPoint> points;
+  final MapPoint head;
+}
+
+class _TimedRoutePoint {
+  const _TimedRoutePoint({
+    required this.time,
+    required this.routeIndex,
+  });
+
+  final DateTime time;
+  final double routeIndex;
 }
 
 class _BrotherhoodsSection extends StatelessWidget {
@@ -2024,11 +2222,11 @@ DateTime _clampScheduleTimeToEntries(
 }
 
 DateTime _scheduleMinTime(List<_ScheduledEventEntry> entries) {
-  return entries.first.scheduledAt.subtract(const Duration(hours: 1));
+  return entries.first.scheduledAt.subtract(const Duration(hours: 2));
 }
 
 DateTime _scheduleMaxTime(List<_ScheduledEventEntry> entries) {
-  return entries.last.scheduledAt.add(const Duration(hours: 1));
+  return entries.last.scheduledAt.add(const Duration(hours: 2));
 }
 
 Color? _parseColor(String raw) {
