@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/day_detail.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_page_surfaces.dart';
 import '../../../core/widgets/adaptive_app_bar_title.dart';
 
 class BrotherhoodDetailPage extends StatelessWidget {
@@ -21,8 +22,8 @@ class BrotherhoodDetailPage extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final accent = _parseColor(event?.brotherhoodColorHex ?? '') ??
-        colorScheme.primary;
+    final accent =
+        _parseColor(event?.brotherhoodColorHex ?? '') ?? colorScheme.primary;
     final backgroundTop = isDark
         ? AppColors.backgroundDarkTop
         : AppColors.lightPage;
@@ -66,10 +67,7 @@ class BrotherhoodDetailPage extends StatelessWidget {
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              backgroundTop,
-              backgroundBottom,
-            ],
+            colors: [backgroundTop, backgroundBottom],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -78,13 +76,11 @@ class BrotherhoodDetailPage extends StatelessWidget {
           slivers: [
             SliverAppBar(
               pinned: true,
-              backgroundColor: isDark
-                  ? AppColors.backgroundDarkTop
-                  : AppColors.lightChrome,
+              backgroundColor: AppPageSurfaces.sliverAppBarBackground(
+                theme.brightness,
+              ),
               title: AdaptiveAppBarTitle(title),
-              actions: const [
-                SizedBox(width: kToolbarHeight),
-              ],
+              actions: const [SizedBox(width: kToolbarHeight)],
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -121,23 +117,22 @@ class BrotherhoodDetailPage extends StatelessWidget {
                               const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       event!.brotherhoodName,
-                                      style:
-                                          theme.textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       dayName ?? 'Jornada',
-                                      style:
-                                          theme.textTheme.bodyMedium?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -204,10 +199,7 @@ class BrotherhoodDetailPage extends StatelessWidget {
 }
 
 class _InfoBlock extends StatelessWidget {
-  const _InfoBlock({
-    required this.title,
-    required this.child,
-  });
+  const _InfoBlock({required this.title, required this.child});
 
   final String title;
   final Widget child;

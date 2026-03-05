@@ -10,18 +10,16 @@ import '../../../core/models/day_detail.dart';
 import '../../../core/models/day_index_item.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_page_surfaces.dart';
 import '../../../core/time/test_clock_controller.dart';
 import '../../../core/widgets/adaptive_app_bar_title.dart';
+import '../../../core/widgets/sliver_scroll_state_mixin.dart';
 import '../application/day_detail_controller.dart';
 import '../application/edition_official_route_provider.dart';
 import 'schedule_point_map_page.dart';
 
 class DayDetailPage extends ConsumerStatefulWidget {
-  const DayDetailPage({
-    super.key,
-    required this.slug,
-    this.item,
-  });
+  const DayDetailPage({super.key, required this.slug, this.item});
 
   final String slug;
   final DayIndexItem? item;
@@ -30,42 +28,26 @@ class DayDetailPage extends ConsumerStatefulWidget {
   ConsumerState<DayDetailPage> createState() => _DayDetailPageState();
 }
 
-class _DayDetailPageState extends ConsumerState<DayDetailPage> {
+class _DayDetailPageState extends ConsumerState<DayDetailPage>
+    with SliverScrollStateMixin<DayDetailPage> {
   int _currentSection = 0;
   _ScheduleViewMode _scheduleViewMode = _ScheduleViewMode.cards;
   DateTime? _selectedScheduleTime;
-  bool _hasScrolled = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final brightness = theme.brightness;
     final effectiveSlug = widget.item?.slug ?? widget.slug;
     final detailAsync = ref.watch(dayDetailProvider(effectiveSlug));
-    final editionOfficialRoute = ref.watch(editionOfficialRouteProvider).asData?.value;
+    final editionOfficialRoute = ref
+        .watch(editionOfficialRouteProvider)
+        .asData
+        ?.value;
     final testClock = ref.watch(testClockProvider);
     final detail = detailAsync.asData?.value;
     final pageTitle = widget.item?.name ?? detail?.name ?? 'Jornada';
-    final backgroundTop = isDark
-        ? AppColors.backgroundDarkTop
-        : AppColors.lightPage;
-    final backgroundMid = isDark
-        ? Color.lerp(
-            AppColors.backgroundDarkTop,
-            AppColors.backgroundDarkBottom,
-            0.45,
-          )!
-        : Color.lerp(
-            AppColors.lightSurface,
-            AppColors.backgroundLightTop,
-            0.55,
-          )!;
-    final backgroundBottom = isDark
-        ? AppColors.backgroundDarkBottom
-        : AppColors.backgroundLightBottom;
-    final appBarBackground = isDark
-        ? AppColors.backgroundDarkTop
-        : AppColors.lightChrome;
+    final appBarBackground = AppPageSurfaces.sliverAppBarBackground(brightness);
     final scheduleEntries = detail == null
         ? const <_ScheduledEventEntry>[]
         : _buildScheduleEntries(
@@ -123,45 +105,24 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage> {
       ),
       body: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              backgroundTop,
-              backgroundMid,
-              backgroundBottom,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          gradient: AppPageSurfaces.jornadasBackground(brightness),
         ),
         child: NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (notification.depth != 0) {
-              return false;
-            }
-
-            final nextHasScrolled = notification.metrics.pixels > 0;
-            if (nextHasScrolled != _hasScrolled) {
-              setState(() {
-                _hasScrolled = nextHasScrolled;
-              });
-            }
-            return false;
-          },
+          onNotification: handleRootScrollNotification,
           child: Stack(
             children: [
               CustomScrollView(
                 slivers: [
                   SliverAppBar(
                     pinned: true,
-                    backgroundColor:
-                        _hasScrolled ? appBarBackground : Colors.transparent,
+                    backgroundColor: hasScrolled
+                        ? appBarBackground
+                        : Colors.transparent,
                     surfaceTintColor: Colors.transparent,
                     scrolledUnderElevation: 0,
-                    forceMaterialTransparency: !_hasScrolled,
+                    forceMaterialTransparency: !hasScrolled,
                     title: AdaptiveAppBarTitle(pageTitle),
-                    actions: const [
-                      SizedBox(width: kToolbarHeight),
-                    ],
+                    actions: const [SizedBox(width: kToolbarHeight)],
                   ),
                   SliverPadding(
                     padding: sectionPadding,
@@ -174,10 +135,7 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage> {
                             duration: const Duration(milliseconds: 140),
                             curve: Curves.easeOut,
                             builder: (context, value, child) {
-                              return Opacity(
-                                opacity: value,
-                                child: child,
-                              );
+                              return Opacity(opacity: value, child: child);
                             },
                             child: _SectionContent(
                               currentSection: _currentSection,
@@ -344,7 +302,8 @@ class _ScheduleSection extends StatelessWidget {
     if (entries.isEmpty) {
       return const _InfoCard(
         title: 'Sin horario disponible',
-        message: 'Todavía no hay tramos horarios sincronizados para esta jornada.',
+        message:
+            'Todavía no hay tramos horarios sincronizados para esta jornada.',
       );
     }
 
@@ -519,9 +478,9 @@ class _ScheduleTableViewState extends State<_ScheduleTableView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final groupedEntries = _groupEntriesByBrotherhood(widget.entries).values.toList(
-      growable: false,
-    );
+    final groupedEntries = _groupEntriesByBrotherhood(
+      widget.entries,
+    ).values.toList(growable: false);
 
     return Card(
       child: Padding(
@@ -601,21 +560,27 @@ class _ScheduleTableViewState extends State<_ScheduleTableView> {
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                 ),
-                                color: widget.selectedTime != null &&
+                                color:
+                                    widget.selectedTime != null &&
                                         _isSameSlot(
                                           slot,
                                           _slotStartFor(widget.selectedTime!),
                                         )
-                                    ? colorScheme.primary.withValues(alpha: 0.08)
+                                    ? colorScheme.primary.withValues(
+                                        alpha: 0.08,
+                                      )
                                     : null,
                                 child: Text(
                                   _formatSlotLabel(slot),
                                   style: theme.textTheme.labelLarge?.copyWith(
                                     fontWeight: FontWeight.w700,
-                                    color: widget.selectedTime != null &&
+                                    color:
+                                        widget.selectedTime != null &&
                                             _isSameSlot(
                                               slot,
-                                              _slotStartFor(widget.selectedTime!),
+                                              _slotStartFor(
+                                                widget.selectedTime!,
+                                              ),
                                             )
                                         ? colorScheme.primary
                                         : null,
@@ -640,12 +605,16 @@ class _ScheduleTableViewState extends State<_ScheduleTableView> {
                                         : entry.pointName.trim().isEmpty
                                         ? 'Punto'
                                         : entry.pointName.trim();
-                                    final accent = _parseColor(
+                                    final accent =
+                                        _parseColor(
                                           brotherhoodEntries
-                                              .first.event.brotherhoodColorHex,
+                                              .first
+                                              .event
+                                              .brotherhoodColorHex,
                                         ) ??
                                         colorScheme.primary;
-                                    final isSelected = widget.selectedTime != null &&
+                                    final isSelected =
+                                        widget.selectedTime != null &&
                                         _isSameSlot(
                                           slot,
                                           _slotStartFor(widget.selectedTime!),
@@ -729,16 +698,18 @@ class _MapSectionState extends State<_MapSection> {
     return event.routePoints
         .where((point) => point.hasLocation)
         .map(
-          (point) => MapPoint(latitude: point.latitude!, longitude: point.longitude!),
+          (point) =>
+              MapPoint(latitude: point.latitude!, longitude: point.longitude!),
         )
         .toList(growable: false);
   }
 
   bool _isEventVisibleAt(DayProcessionEvent event, DateTime selectedTime) {
-    final timedSchedule = event.schedulePoints
-        .where((point) => point.hasLocation && point.plannedAt != null)
-        .toList(growable: false)
-      ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
+    final timedSchedule =
+        event.schedulePoints
+            .where((point) => point.hasLocation && point.plannedAt != null)
+            .toList(growable: false)
+          ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
 
     if (timedSchedule.isEmpty) {
       return true;
@@ -757,7 +728,8 @@ class _MapSectionState extends State<_MapSection> {
         .where((event) => _isEventVisibleAt(event, selectedTime))
         .map(
           (event) => _VisibleRoute(
-            color: _parseColor(event.brotherhoodColorHex) ??
+            color:
+                _parseColor(event.brotherhoodColorHex) ??
                 Theme.of(context).colorScheme.primary,
             points: _routeMapPoints(event),
           ),
@@ -770,7 +742,8 @@ class _MapSectionState extends State<_MapSection> {
     final points = widget.detail.officialRoutePoints
         .where((point) => point.hasLocation)
         .map(
-          (point) => MapPoint(latitude: point.latitude!, longitude: point.longitude!),
+          (point) =>
+              MapPoint(latitude: point.latitude!, longitude: point.longitude!),
         )
         .toList(growable: false);
     if (points.length < 2) {
@@ -778,9 +751,10 @@ class _MapSectionState extends State<_MapSection> {
     }
 
     return _VisibleRoute(
-      color: (_parseArgbColor(widget.detail.officialRouteArgb) ??
-              _officialCourseFallbackColor)
-          .withValues(alpha: 0.9),
+      color:
+          (_parseArgbColor(widget.detail.officialRouteArgb) ??
+                  _officialCourseFallbackColor)
+              .withValues(alpha: 0.9),
       points: points,
     );
   }
@@ -798,10 +772,11 @@ class _MapSectionState extends State<_MapSection> {
         continue;
       }
 
-      final timedSchedule = event.schedulePoints
-          .where((point) => point.hasLocation && point.plannedAt != null)
-          .toList(growable: false)
-        ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
+      final timedSchedule =
+          event.schedulePoints
+              .where((point) => point.hasLocation && point.plannedAt != null)
+              .toList(growable: false)
+            ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
       if (timedSchedule.isEmpty) {
         continue;
       }
@@ -839,7 +814,7 @@ class _MapSectionState extends State<_MapSection> {
       final tailIndex = passMinutes <= 0
           ? headIndex
           : (_routeIndexAtTime(timedRoutePoints, tailTime) ??
-              timedRoutePoints.first.routeIndex);
+                timedRoutePoints.first.routeIndex);
 
       final segment = _sliceRoute(route, tailIndex, headIndex);
       if (segment.length < 2) {
@@ -848,7 +823,8 @@ class _MapSectionState extends State<_MapSection> {
 
       result.add(
         _ActiveTrack(
-          color: _parseColor(event.brotherhoodColorHex) ??
+          color:
+              _parseColor(event.brotherhoodColorHex) ??
               Theme.of(context).colorScheme.primary,
           points: segment,
           head: _pointAtIndex(route, headIndex),
@@ -864,9 +840,9 @@ class _MapSectionState extends State<_MapSection> {
     if (selectedTime == null) {
       return const [];
     }
-    return _activeTracksFor(selectedTime)
-        .map((track) => track.head)
-        .toList(growable: false);
+    return _activeTracksFor(
+      selectedTime,
+    ).map((track) => track.head).toList(growable: false);
   }
 
   List<MapPoint> get _focusPoints {
@@ -882,12 +858,11 @@ class _MapSectionState extends State<_MapSection> {
     }
 
     final visibleRoutes = _visibleRoutes(selectedTime);
-    final visiblePoints = visibleRoutes.expand((route) => route.points).toList();
+    final visiblePoints = visibleRoutes
+        .expand((route) => route.points)
+        .toList();
     final officialRoute = _officialCourseRoute();
-    final fallback = [
-      ...visiblePoints,
-      ...?officialRoute?.points,
-    ];
+    final fallback = [...visiblePoints, ...?officialRoute?.points];
     if (fallback.isNotEmpty) {
       return fallback;
     }
@@ -900,7 +875,8 @@ class _MapSectionState extends State<_MapSection> {
         .expand((event) => event.routePoints)
         .where((point) => point.hasLocation)
         .map(
-          (point) => MapPoint(latitude: point.latitude!, longitude: point.longitude!),
+          (point) =>
+              MapPoint(latitude: point.latitude!, longitude: point.longitude!),
         )
         .toList(growable: false);
   }
@@ -910,17 +886,15 @@ class _MapSectionState extends State<_MapSection> {
     final officialRoute = _officialCourseRoute();
     if (officialRoute != null) {
       items.add(
-        _RouteLegendItem(
-          label: 'Carrera oficial',
-          color: officialRoute.color,
-        ),
+        _RouteLegendItem(label: 'Carrera oficial', color: officialRoute.color),
       );
     }
     for (final event in widget.detail.processionEvents) {
       items.add(
         _RouteLegendItem(
           label: event.brotherhoodName,
-          color: _parseColor(event.brotherhoodColorHex) ??
+          color:
+              _parseColor(event.brotherhoodColorHex) ??
               Theme.of(context).colorScheme.primary,
         ),
       );
@@ -1085,12 +1059,13 @@ class _MapSectionState extends State<_MapSection> {
 
     final media = MediaQuery.sizeOf(context);
     final insets = MediaQuery.paddingOf(context);
-    final mapHeight = (media.height -
-            insets.top -
-            insets.bottom -
-            kToolbarHeight -
-            kBottomNavigationBarHeight)
-        .clamp(360.0, 1200.0);
+    final mapHeight =
+        (media.height -
+                insets.top -
+                insets.bottom -
+                kToolbarHeight -
+                kBottomNavigationBarHeight)
+            .clamp(360.0, 1200.0);
 
     return SizedBox(
       height: mapHeight,
@@ -1103,10 +1078,7 @@ class _MapSectionState extends State<_MapSection> {
                 Theme.of(context).brightness,
               ),
               gestureRecognizers: kMapGestureRecognizers,
-              cameraOptions: cameraForPoints(
-                _focusPoints,
-                fallbackZoom: 13.8,
-              ),
+              cameraOptions: cameraForPoints(_focusPoints, fallbackZoom: 13.8),
               onMapCreated: _onMapCreated,
             )
           else
@@ -1155,7 +1127,11 @@ class _MapSectionState extends State<_MapSection> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  for (var i = 0; i < legendItems.length; i++) ...[
+                                  for (
+                                    var i = 0;
+                                    i < legendItems.length;
+                                    i++
+                                  ) ...[
                                     _RouteLegendChip(item: legendItems[i]),
                                     if (i < legendItems.length - 1)
                                       const SizedBox(height: 6),
@@ -1309,19 +1285,14 @@ class _MapSectionState extends State<_MapSection> {
 }
 
 class _RouteLegendItem {
-  const _RouteLegendItem({
-    required this.label,
-    required this.color,
-  });
+  const _RouteLegendItem({required this.label, required this.color});
 
   final String label;
   final Color color;
 }
 
 class _RouteLegendChip extends StatelessWidget {
-  const _RouteLegendChip({
-    required this.item,
-  });
+  const _RouteLegendChip({required this.item});
 
   final _RouteLegendItem item;
 
@@ -1341,9 +1312,9 @@ class _RouteLegendChip extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           item.label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -1351,10 +1322,7 @@ class _RouteLegendChip extends StatelessWidget {
 }
 
 class _VisibleRoute {
-  const _VisibleRoute({
-    required this.color,
-    required this.points,
-  });
+  const _VisibleRoute({required this.color, required this.points});
 
   final Color color;
   final List<MapPoint> points;
@@ -1373,10 +1341,7 @@ class _ActiveTrack {
 }
 
 class _TimedRoutePoint {
-  const _TimedRoutePoint({
-    required this.time,
-    required this.routeIndex,
-  });
+  const _TimedRoutePoint({required this.time, required this.routeIndex});
 
   final DateTime time;
   final double routeIndex;
@@ -1440,9 +1405,7 @@ class _PlanSection extends StatelessWidget {
 }
 
 class _PlaceholderSection extends StatelessWidget {
-  const _PlaceholderSection({
-    required this.child,
-  });
+  const _PlaceholderSection({required this.child});
 
   final Widget child;
 
@@ -1472,8 +1435,9 @@ class _ScheduleCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final accent = _parseColor(entry.event.brotherhoodColorHex) ??
-        colorScheme.primary;
+    final accent =
+        _parseColor(entry.event.brotherhoodColorHex) ?? colorScheme.primary;
+    final statusChips = _statusChipsFor(entry.event.status);
 
     return Container(
       decoration: BoxDecoration(
@@ -1498,18 +1462,19 @@ class _ScheduleCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: entry.schedulePoint?.hasLocation == true
               ? () async {
-                  final updatedTime = await Navigator.of(context).push<DateTime>(
-                    MaterialPageRoute<DateTime>(
-                      builder: (context) => SchedulePointMapPage(
-                        title: entry.event.brotherhoodName,
-                        colorHex: entry.event.brotherhoodColorHex,
-                        event: entry.event,
-                        initialSelectedTime: selectedTime,
-                        minSelectableTime: minSelectableTime,
-                        maxSelectableTime: maxSelectableTime,
-                      ),
-                    ),
-                  );
+                  final updatedTime = await Navigator.of(context)
+                      .push<DateTime>(
+                        MaterialPageRoute<DateTime>(
+                          builder: (context) => SchedulePointMapPage(
+                            title: entry.event.brotherhoodName,
+                            colorHex: entry.event.brotherhoodColorHex,
+                            event: entry.event,
+                            initialSelectedTime: selectedTime,
+                            minSelectableTime: minSelectableTime,
+                            maxSelectableTime: maxSelectableTime,
+                          ),
+                        ),
+                      );
                   if (updatedTime != null) {
                     onSelectedTimeChanged(updatedTime);
                   }
@@ -1534,11 +1499,32 @@ class _ScheduleCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        entry.event.brotherhoodName,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              entry.event.brotherhoodName,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (statusChips.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final chip in statusChips)
+                                  _EventStatusChip(
+                                    label: chip.label,
+                                    foreground: chip.foreground,
+                                    background: chip.background,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -1554,6 +1540,36 @@ class _ScheduleCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EventStatusChip extends StatelessWidget {
+  const _EventStatusChip({
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: foreground,
         ),
       ),
     );
@@ -1656,9 +1672,7 @@ class _FloatingTimeSelector extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            side: BorderSide(
-                              color: colorScheme.outline,
-                            ),
+                            side: BorderSide(color: colorScheme.outline),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           ),
@@ -1696,10 +1710,7 @@ class _FloatingTimeSelector extends StatelessWidget {
 }
 
 class _TimeShiftButton extends StatelessWidget {
-  const _TimeShiftButton({
-    required this.icon,
-    required this.onPressed,
-  });
+  const _TimeShiftButton({required this.icon, required this.onPressed});
 
   final IconData icon;
   final VoidCallback onPressed;
@@ -1726,10 +1737,7 @@ class _TimeShiftButton extends StatelessWidget {
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.title,
-    required this.message,
-  });
+  const _InfoCard({required this.title, required this.message});
 
   final String title;
   final String message;
@@ -1760,10 +1768,7 @@ class _InfoCard extends StatelessWidget {
 }
 
 class _ProcessionEventCard extends StatelessWidget {
-  const _ProcessionEventCard({
-    required this.event,
-    this.onTap,
-  });
+  const _ProcessionEventCard({required this.event, this.onTap});
 
   final DayProcessionEvent event;
   final VoidCallback? onTap;
@@ -1773,7 +1778,8 @@ class _ProcessionEventCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final accent = _parseColor(event.brotherhoodColorHex) ?? colorScheme.primary;
+    final accent =
+        _parseColor(event.brotherhoodColorHex) ?? colorScheme.primary;
 
     return Container(
       decoration: BoxDecoration(
@@ -1861,18 +1867,13 @@ class _LoadingState extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 32),
-      child: Center(
-        child: CircularProgressIndicator(),
-      ),
+      child: Center(child: CircularProgressIndicator()),
     );
   }
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorState({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -1887,9 +1888,9 @@ class _ErrorState extends StatelessWidget {
           children: [
             Text(
               'No se pudo cargar el detalle',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             SelectableText(message),
@@ -1937,10 +1938,11 @@ List<_ScheduledEventEntry> _buildScheduleEntries(
   final entries = <_ScheduledEventEntry>[];
 
   for (final event in events) {
-    final timedPoints = event.schedulePoints
-        .where((point) => point.plannedAt != null)
-        .toList(growable: false)
-      ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
+    final timedPoints =
+        event.schedulePoints
+            .where((point) => point.plannedAt != null)
+            .toList(growable: false)
+          ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
 
     if (timedPoints.isNotEmpty) {
       for (final point in timedPoints) {
@@ -2056,13 +2058,88 @@ List<_ScheduledEventEntry> _entriesForMoment(
   }
 
   visible.sort(
-    (a, b) => _campanaSortTime(
-      grouped[a.event.brotherhoodSlug]!,
-    ).compareTo(
-      _campanaSortTime(grouped[b.event.brotherhoodSlug]!),
-    ),
+    (a, b) {
+      final statusPriority = _scheduleCardStatusPriority(a.event.status)
+          .compareTo(_scheduleCardStatusPriority(b.event.status));
+      if (statusPriority != 0) {
+        return statusPriority;
+      }
+      final campanaCompare = _campanaSortTime(
+        grouped[a.event.brotherhoodSlug]!,
+      ).compareTo(_campanaSortTime(grouped[b.event.brotherhoodSlug]!));
+      if (campanaCompare != 0) {
+        return campanaCompare;
+      }
+      return a.event.brotherhoodName.compareTo(b.event.brotherhoodName);
+    },
   );
   return visible;
+}
+
+int _scheduleCardStatusPriority(String status) {
+  if (_isCancelledStatus(status)) {
+    return 1;
+  }
+  return 0;
+}
+
+List<_StatusChipData> _statusChipsFor(String status) {
+  final chips = <_StatusChipData>[];
+  if (_isDelayedStatus(status)) {
+    chips.add(
+      const _StatusChipData(
+        label: 'Retrasada',
+        foreground: Color(0xFF9A3412),
+        background: Color(0xFFFFEDD5),
+      ),
+    );
+  }
+  if (_isCancelledStatus(status)) {
+    chips.add(
+      const _StatusChipData(
+        label: 'Cancelada',
+        foreground: Color(0xFF991B1B),
+        background: Color(0xFFFEE2E2),
+      ),
+    );
+  }
+  return chips;
+}
+
+bool _isDelayedStatus(String status) {
+  final normalized = _normalizeStatus(status);
+  return normalized.contains('retrasad') ||
+      normalized.contains('delay') ||
+      normalized.contains('late');
+}
+
+bool _isCancelledStatus(String status) {
+  final normalized = _normalizeStatus(status);
+  return normalized.contains('cancelad') ||
+      normalized.contains('cancelled') ||
+      normalized.contains('canceled');
+}
+
+String _normalizeStatus(String status) {
+  return status
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u');
+}
+
+class _StatusChipData {
+  const _StatusChipData({
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
 }
 
 List<DateTime> _scheduleSlotsFor(List<_ScheduledEventEntry> entries) {
@@ -2097,10 +2174,7 @@ DateTime? _resolveSelectedScheduleTime(
   }
 
   return _roundToNearestQuarterHour(
-    _anchorReferenceTimeToScheduleDay(
-      entries,
-      referenceTime,
-    ),
+    _anchorReferenceTimeToScheduleDay(entries, referenceTime),
   );
 }
 

@@ -38,12 +38,7 @@ class Days extends Table {
   IntColumn get processionEventsCount => integer()();
 
   @override
-  Set<Column<Object>> get primaryKey => {
-        citySlug,
-        yearValue,
-        mode,
-        slug,
-      };
+  Set<Column<Object>> get primaryKey => {citySlug, yearValue, mode, slug};
 }
 
 class DayDetailEntries extends Table {
@@ -55,12 +50,7 @@ class DayDetailEntries extends Table {
   TextColumn get officialRouteArgb => text().nullable()();
 
   @override
-  Set<Column<Object>> get primaryKey => {
-        citySlug,
-        yearValue,
-        mode,
-        daySlug,
-      };
+  Set<Column<Object>> get primaryKey => {citySlug, yearValue, mode, daySlug};
 }
 
 class DayProcessionEventEntries extends Table {
@@ -79,12 +69,12 @@ class DayProcessionEventEntries extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {
-        citySlug,
-        yearValue,
-        mode,
-        daySlug,
-        position,
-      };
+    citySlug,
+    yearValue,
+    mode,
+    daySlug,
+    position,
+  };
 }
 
 class DaySchedulePointEntries extends Table {
@@ -101,13 +91,13 @@ class DaySchedulePointEntries extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {
-        citySlug,
-        yearValue,
-        mode,
-        daySlug,
-        eventPosition,
-        pointPosition,
-      };
+    citySlug,
+    yearValue,
+    mode,
+    daySlug,
+    eventPosition,
+    pointPosition,
+  };
 }
 
 class DayRoutePointEntries extends Table {
@@ -122,13 +112,13 @@ class DayRoutePointEntries extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {
-        citySlug,
-        yearValue,
-        mode,
-        daySlug,
-        eventPosition,
-        pointPosition,
-      };
+    citySlug,
+    yearValue,
+    mode,
+    daySlug,
+    eventPosition,
+    pointPosition,
+  };
 }
 
 class DayOfficialRoutePointEntries extends Table {
@@ -142,12 +132,12 @@ class DayOfficialRoutePointEntries extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {
-        citySlug,
-        yearValue,
-        mode,
-        daySlug,
-        pointPosition,
-      };
+    citySlug,
+    yearValue,
+    mode,
+    daySlug,
+    pointPosition,
+  };
 }
 
 class SyncStatusEntries extends Table {
@@ -157,11 +147,7 @@ class SyncStatusEntries extends Table {
   DateTimeColumn get lastSyncedAt => dateTime()();
 
   @override
-  Set<Column<Object>> get primaryKey => {
-        citySlug,
-        yearValue,
-        mode,
-      };
+  Set<Column<Object>> get primaryKey => {citySlug, yearValue, mode};
 }
 
 class AppSettingsEntries extends Table {
@@ -193,45 +179,39 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            await m.createTable(days);
-            await m.createTable(dayDetailEntries);
-            await m.createTable(dayProcessionEventEntries);
-          }
-          if (from < 3) {
-            await m.createTable(syncStatusEntries);
-          }
-          if (from < 4) {
-            await m.createTable(appSettingsEntries);
-          }
-          if (from < 5) {
-            await m.createTable(daySchedulePointEntries);
-          }
-          if (from < 6) {
-            await m.createTable(dayRoutePointEntries);
-          }
-          if (from < 7) {
-            await m.addColumn(
-              dayDetailEntries,
-              dayDetailEntries.officialRouteArgb,
-            );
-            await m.createTable(dayOfficialRoutePointEntries);
-          }
-          if (from < 8) {
-            await m.addColumn(
-              dayProcessionEventEntries,
-              dayProcessionEventEntries.routeArgb,
-            );
-          }
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(days);
+        await m.createTable(dayDetailEntries);
+        await m.createTable(dayProcessionEventEntries);
+      }
+      if (from < 3) {
+        await m.createTable(syncStatusEntries);
+      }
+      if (from < 4) {
+        await m.createTable(appSettingsEntries);
+      }
+      if (from < 5) {
+        await m.createTable(daySchedulePointEntries);
+      }
+      if (from < 6) {
+        await m.createTable(dayRoutePointEntries);
+      }
+      if (from < 7) {
+        await m.addColumn(dayDetailEntries, dayDetailEntries.officialRouteArgb);
+        await m.createTable(dayOfficialRoutePointEntries);
+      }
+      if (from < 8) {
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.routeArgb,
+        );
+      }
+    },
+  );
 
-  Future<void> saveHttpCache({
-    required String key,
-    required String payload,
-  }) {
+  Future<void> saveHttpCache({required String key, required String payload}) {
     return into(httpCacheEntries).insertOnConflictUpdate(
       HttpCacheEntriesCompanion(
         key: Value(key),
@@ -242,9 +222,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<String?> readHttpCache(String key) async {
-    final row = await (select(httpCacheEntries)
-          ..where((tbl) => tbl.key.equals(key)))
-        .getSingleOrNull();
+    final row = await (select(
+      httpCacheEntries,
+    )..where((tbl) => tbl.key.equals(key))).getSingleOrNull();
     return row?.payload;
   }
 
@@ -259,11 +239,12 @@ class AppDatabase extends _$AppDatabase {
     required List<DayIndexItem> items,
   }) async {
     await transaction(() async {
-      await (delete(days)
-            ..where((tbl) =>
+      await (delete(days)..where(
+            (tbl) =>
                 tbl.citySlug.equals(city) &
                 tbl.yearValue.equals(year) &
-                tbl.mode.equals(modeValue)))
+                tbl.mode.equals(modeValue),
+          ))
           .go();
 
       await batch((batch) {
@@ -292,15 +273,16 @@ class AppDatabase extends _$AppDatabase {
     required int year,
     required String modeValue,
   }) async {
-    final rows = await (select(days)
-          ..where((tbl) =>
-              tbl.citySlug.equals(city) &
-              tbl.yearValue.equals(year) &
-              tbl.mode.equals(modeValue))
-          ..orderBy([
-            (tbl) => OrderingTerm.asc(tbl.startsAt),
-          ]))
-        .get();
+    final rows =
+        await (select(days)
+              ..where(
+                (tbl) =>
+                    tbl.citySlug.equals(city) &
+                    tbl.yearValue.equals(year) &
+                    tbl.mode.equals(modeValue),
+              )
+              ..orderBy([(tbl) => OrderingTerm.asc(tbl.startsAt)]))
+            .get();
 
     return rows
         .map(
@@ -322,44 +304,49 @@ class AppDatabase extends _$AppDatabase {
     required DayDetail detail,
   }) async {
     await transaction(() async {
-      await (delete(dayDetailEntries)
-            ..where((tbl) =>
+      await (delete(dayDetailEntries)..where(
+            (tbl) =>
                 tbl.citySlug.equals(city) &
                 tbl.yearValue.equals(year) &
                 tbl.mode.equals(modeValue) &
-                tbl.daySlug.equals(daySlugValue)))
+                tbl.daySlug.equals(daySlugValue),
+          ))
           .go();
 
-      await (delete(dayProcessionEventEntries)
-            ..where((tbl) =>
+      await (delete(dayProcessionEventEntries)..where(
+            (tbl) =>
                 tbl.citySlug.equals(city) &
                 tbl.yearValue.equals(year) &
                 tbl.mode.equals(modeValue) &
-                tbl.daySlug.equals(daySlugValue)))
+                tbl.daySlug.equals(daySlugValue),
+          ))
           .go();
 
-      await (delete(daySchedulePointEntries)
-            ..where((tbl) =>
+      await (delete(daySchedulePointEntries)..where(
+            (tbl) =>
                 tbl.citySlug.equals(city) &
                 tbl.yearValue.equals(year) &
                 tbl.mode.equals(modeValue) &
-                tbl.daySlug.equals(daySlugValue)))
+                tbl.daySlug.equals(daySlugValue),
+          ))
           .go();
 
-      await (delete(dayRoutePointEntries)
-            ..where((tbl) =>
+      await (delete(dayRoutePointEntries)..where(
+            (tbl) =>
                 tbl.citySlug.equals(city) &
                 tbl.yearValue.equals(year) &
                 tbl.mode.equals(modeValue) &
-                tbl.daySlug.equals(daySlugValue)))
+                tbl.daySlug.equals(daySlugValue),
+          ))
           .go();
 
-      await (delete(dayOfficialRoutePointEntries)
-            ..where((tbl) =>
+      await (delete(dayOfficialRoutePointEntries)..where(
+            (tbl) =>
                 tbl.citySlug.equals(city) &
                 tbl.yearValue.equals(year) &
                 tbl.mode.equals(modeValue) &
-                tbl.daySlug.equals(daySlugValue)))
+                tbl.daySlug.equals(daySlugValue),
+          ))
           .go();
 
       await into(dayDetailEntries).insert(
@@ -407,28 +394,26 @@ class AppDatabase extends _$AppDatabase {
                 (eventEntry) => eventEntry.value.schedulePoints
                     .asMap()
                     .entries
-                    .map(
-                      (pointEntry) {
-                        _debugSchedulePointDb(
-                          stage: 'save',
-                          pointName: pointEntry.value.name,
-                          plannedAt: pointEntry.value.plannedAt,
-                        );
+                    .map((pointEntry) {
+                      _debugSchedulePointDb(
+                        stage: 'save',
+                        pointName: pointEntry.value.name,
+                        plannedAt: pointEntry.value.plannedAt,
+                      );
 
-                        return DaySchedulePointEntriesCompanion.insert(
-                          citySlug: city,
-                          yearValue: year,
-                          mode: modeValue,
-                          daySlug: daySlugValue,
-                          eventPosition: eventEntry.key,
-                          pointPosition: pointEntry.key,
-                          name: pointEntry.value.name,
-                          plannedAt: Value(pointEntry.value.plannedAt),
-                          latitude: Value(pointEntry.value.latitude),
-                          longitude: Value(pointEntry.value.longitude),
-                        );
-                      },
-                    ),
+                      return DaySchedulePointEntriesCompanion.insert(
+                        citySlug: city,
+                        yearValue: year,
+                        mode: modeValue,
+                        daySlug: daySlugValue,
+                        eventPosition: eventEntry.key,
+                        pointPosition: pointEntry.key,
+                        name: pointEntry.value.name,
+                        plannedAt: Value(pointEntry.value.plannedAt),
+                        latitude: Value(pointEntry.value.latitude),
+                        longitude: Value(pointEntry.value.longitude),
+                      );
+                    }),
               )
               .toList(growable: false),
         );
@@ -439,10 +424,8 @@ class AppDatabase extends _$AppDatabase {
               .asMap()
               .entries
               .expand(
-                (eventEntry) => eventEntry.value.routePoints
-                    .asMap()
-                    .entries
-                    .map(
+                (eventEntry) =>
+                    eventEntry.value.routePoints.asMap().entries.map(
                       (pointEntry) => DayRoutePointEntriesCompanion.insert(
                         citySlug: city,
                         yearValue: year,
@@ -480,69 +463,133 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<void> deleteDayDetail({
+    required String city,
+    required int year,
+    required String modeValue,
+    required String daySlugValue,
+  }) async {
+    await transaction(() async {
+      await (delete(dayDetailEntries)..where(
+            (tbl) =>
+                tbl.citySlug.equals(city) &
+                tbl.yearValue.equals(year) &
+                tbl.mode.equals(modeValue) &
+                tbl.daySlug.equals(daySlugValue),
+          ))
+          .go();
+
+      await (delete(dayProcessionEventEntries)..where(
+            (tbl) =>
+                tbl.citySlug.equals(city) &
+                tbl.yearValue.equals(year) &
+                tbl.mode.equals(modeValue) &
+                tbl.daySlug.equals(daySlugValue),
+          ))
+          .go();
+
+      await (delete(daySchedulePointEntries)..where(
+            (tbl) =>
+                tbl.citySlug.equals(city) &
+                tbl.yearValue.equals(year) &
+                tbl.mode.equals(modeValue) &
+                tbl.daySlug.equals(daySlugValue),
+          ))
+          .go();
+
+      await (delete(dayRoutePointEntries)..where(
+            (tbl) =>
+                tbl.citySlug.equals(city) &
+                tbl.yearValue.equals(year) &
+                tbl.mode.equals(modeValue) &
+                tbl.daySlug.equals(daySlugValue),
+          ))
+          .go();
+
+      await (delete(dayOfficialRoutePointEntries)..where(
+            (tbl) =>
+                tbl.citySlug.equals(city) &
+                tbl.yearValue.equals(year) &
+                tbl.mode.equals(modeValue) &
+                tbl.daySlug.equals(daySlugValue),
+          ))
+          .go();
+    });
+  }
+
   Future<DayDetail?> getDayDetail({
     required String city,
     required int year,
     required String modeValue,
     required String daySlugValue,
   }) async {
-    final header = await (select(dayDetailEntries)
-          ..where((tbl) =>
-              tbl.citySlug.equals(city) &
-              tbl.yearValue.equals(year) &
-              tbl.mode.equals(modeValue) &
-              tbl.daySlug.equals(daySlugValue)))
-        .getSingleOrNull();
+    final header =
+        await (select(dayDetailEntries)..where(
+              (tbl) =>
+                  tbl.citySlug.equals(city) &
+                  tbl.yearValue.equals(year) &
+                  tbl.mode.equals(modeValue) &
+                  tbl.daySlug.equals(daySlugValue),
+            ))
+            .getSingleOrNull();
 
     if (header == null) {
       return null;
     }
 
-    final rows = await (select(dayProcessionEventEntries)
-          ..where((tbl) =>
-              tbl.citySlug.equals(city) &
-              tbl.yearValue.equals(year) &
-              tbl.mode.equals(modeValue) &
-              tbl.daySlug.equals(daySlugValue))
-          ..orderBy([
-            (tbl) => OrderingTerm(expression: tbl.position),
-          ]))
-        .get();
+    final rows =
+        await (select(dayProcessionEventEntries)
+              ..where(
+                (tbl) =>
+                    tbl.citySlug.equals(city) &
+                    tbl.yearValue.equals(year) &
+                    tbl.mode.equals(modeValue) &
+                    tbl.daySlug.equals(daySlugValue),
+              )
+              ..orderBy([(tbl) => OrderingTerm(expression: tbl.position)]))
+            .get();
 
-    final scheduleRows = await (select(daySchedulePointEntries)
-          ..where((tbl) =>
-              tbl.citySlug.equals(city) &
-              tbl.yearValue.equals(year) &
-              tbl.mode.equals(modeValue) &
-              tbl.daySlug.equals(daySlugValue))
-          ..orderBy([
-            (tbl) => OrderingTerm(expression: tbl.eventPosition),
-            (tbl) => OrderingTerm(expression: tbl.pointPosition),
-          ]))
-        .get();
+    final scheduleRows =
+        await (select(daySchedulePointEntries)
+              ..where(
+                (tbl) =>
+                    tbl.citySlug.equals(city) &
+                    tbl.yearValue.equals(year) &
+                    tbl.mode.equals(modeValue) &
+                    tbl.daySlug.equals(daySlugValue),
+              )
+              ..orderBy([
+                (tbl) => OrderingTerm(expression: tbl.eventPosition),
+                (tbl) => OrderingTerm(expression: tbl.pointPosition),
+              ]))
+            .get();
 
-    final routeRows = await (select(dayRoutePointEntries)
-          ..where((tbl) =>
-              tbl.citySlug.equals(city) &
-              tbl.yearValue.equals(year) &
-              tbl.mode.equals(modeValue) &
-              tbl.daySlug.equals(daySlugValue))
-          ..orderBy([
-            (tbl) => OrderingTerm(expression: tbl.eventPosition),
-            (tbl) => OrderingTerm(expression: tbl.pointPosition),
-          ]))
-        .get();
+    final routeRows =
+        await (select(dayRoutePointEntries)
+              ..where(
+                (tbl) =>
+                    tbl.citySlug.equals(city) &
+                    tbl.yearValue.equals(year) &
+                    tbl.mode.equals(modeValue) &
+                    tbl.daySlug.equals(daySlugValue),
+              )
+              ..orderBy([
+                (tbl) => OrderingTerm(expression: tbl.eventPosition),
+                (tbl) => OrderingTerm(expression: tbl.pointPosition),
+              ]))
+            .get();
 
-    final officialRouteRows = await (select(dayOfficialRoutePointEntries)
-          ..where((tbl) =>
-              tbl.citySlug.equals(city) &
-              tbl.yearValue.equals(year) &
-              tbl.mode.equals(modeValue) &
-              tbl.daySlug.equals(daySlugValue))
-          ..orderBy([
-            (tbl) => OrderingTerm(expression: tbl.pointPosition),
-          ]))
-        .get();
+    final officialRouteRows =
+        await (select(dayOfficialRoutePointEntries)
+              ..where(
+                (tbl) =>
+                    tbl.citySlug.equals(city) &
+                    tbl.yearValue.equals(year) &
+                    tbl.mode.equals(modeValue) &
+                    tbl.daySlug.equals(daySlugValue),
+              )
+              ..orderBy([(tbl) => OrderingTerm(expression: tbl.pointPosition)]))
+            .get();
 
     final scheduleByEvent = <int, List<SchedulePoint>>{};
     for (final row in scheduleRows) {
@@ -553,7 +600,9 @@ class AppDatabase extends _$AppDatabase {
         plannedAt: resolvedPlannedAt,
       );
 
-      scheduleByEvent.putIfAbsent(row.eventPosition, () => <SchedulePoint>[]).add(
+      scheduleByEvent
+          .putIfAbsent(row.eventPosition, () => <SchedulePoint>[])
+          .add(
             SchedulePoint(
               name: row.name,
               plannedAt: resolvedPlannedAt,
@@ -565,20 +614,14 @@ class AppDatabase extends _$AppDatabase {
 
     final routeByEvent = <int, List<RoutePoint>>{};
     for (final row in routeRows) {
-      routeByEvent.putIfAbsent(row.eventPosition, () => <RoutePoint>[]).add(
-            RoutePoint(
-              latitude: row.latitude,
-              longitude: row.longitude,
-            ),
-          );
+      routeByEvent
+          .putIfAbsent(row.eventPosition, () => <RoutePoint>[])
+          .add(RoutePoint(latitude: row.latitude, longitude: row.longitude));
     }
 
     final officialRoutePoints = officialRouteRows
         .map(
-          (row) => RoutePoint(
-            latitude: row.latitude,
-            longitude: row.longitude,
-          ),
+          (row) => RoutePoint(latitude: row.latitude, longitude: row.longitude),
         )
         .where((point) => point.hasLocation)
         .toList(growable: false);
@@ -629,31 +672,27 @@ class AppDatabase extends _$AppDatabase {
     required int year,
     required String modeValue,
   }) async {
-    final row = await (select(syncStatusEntries)
-          ..where((tbl) =>
-              tbl.citySlug.equals(city) &
-              tbl.yearValue.equals(year) &
-              tbl.mode.equals(modeValue)))
-        .getSingleOrNull();
+    final row =
+        await (select(syncStatusEntries)..where(
+              (tbl) =>
+                  tbl.citySlug.equals(city) &
+                  tbl.yearValue.equals(year) &
+                  tbl.mode.equals(modeValue),
+            ))
+            .getSingleOrNull();
     return row?.lastSyncedAt;
   }
 
-  Future<void> saveSetting({
-    required String key,
-    required String value,
-  }) {
+  Future<void> saveSetting({required String key, required String value}) {
     return into(appSettingsEntries).insertOnConflictUpdate(
-      AppSettingsEntriesCompanion(
-        key: Value(key),
-        value: Value(value),
-      ),
+      AppSettingsEntriesCompanion(key: Value(key), value: Value(value)),
     );
   }
 
   Future<String?> readSetting(String key) async {
-    final row = await (select(appSettingsEntries)
-          ..where((tbl) => tbl.key.equals(key)))
-        .getSingleOrNull();
+    final row = await (select(
+      appSettingsEntries,
+    )..where((tbl) => tbl.key.equals(key))).getSingleOrNull();
     return row?.value;
   }
 

@@ -1,16 +1,24 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/analytics/analytics_providers.dart';
+import '../../../core/analytics/app_analytics.dart';
 import '../../../core/config/app_instance_controller.dart';
+import '../../../core/config/debug_flags.dart';
 import '../../../core/local/app_database.dart';
 import '../../../core/models/day_detail.dart';
 import '../../../core/models/day_index_item.dart';
+import '../../../core/models/sync_changes.dart';
 import '../../../core/models/sync_manifest.dart';
 import '../../../core/network/larevira_api_client.dart';
 import '../../jornadas/application/day_detail_controller.dart';
 import '../../jornadas/application/jornadas_controller.dart';
 
-final syncControllerProvider =
-    NotifierProvider<SyncController, SyncState>(SyncController.new);
+final syncControllerProvider = NotifierProvider<SyncController, SyncState>(
+  SyncController.new,
+);
 
 class SyncState {
   const SyncState({
@@ -51,10 +59,7 @@ class SyncController extends Notifier<SyncState> {
   SyncState build() {
     final appInstance = ref.watch(appInstanceProvider);
     final year = ref.watch(editionYearProvider);
-    _restorePersistedState(
-      city: appInstance.citySlug,
-      year: year,
-    );
+    _restorePersistedState(city: appInstance.citySlug, year: year);
 
     return const SyncState(
       isSyncing: false,
@@ -88,25 +93,29 @@ class SyncController extends Notifier<SyncState> {
     final year = ref.read(editionYearProvider);
     final apiClient = ref.read(lareviraApiClientProvider);
     final appDatabase = ref.read(appDatabaseProvider);
+    final AppAnalytics? analytics = ref.read(appAnalyticsProvider);
     const mode = 'all';
     const resourceKey = 'days';
-    final localDays = await appDatabase.getDays(
-      city: appInstance.citySlug,
-      year: year,
-      modeValue: mode,
-    );
-    final hasLocalDays = localDays.isNotEmpty;
+    final metrics = _SyncMetrics(exposeInMessage: syncMetricsMessageEnabled);
+    final startedAt = DateTime.now();
+    var localDays = const <DayIndexItem>[];
+    var hasLocalDays = false;
 
-    state = state.copyWith(
-      isSyncing: true,
-      message: null,
-    );
+    state = state.copyWith(isSyncing: true, message: null);
 
     try {
+      localDays = await appDatabase.getDays(
+        city: appInstance.citySlug,
+        year: year,
+        modeValue: mode,
+      );
+      hasLocalDays = localDays.isNotEmpty;
+
       final manifest = await _fetchSyncManifest(
         apiClient: apiClient,
         citySlug: appInstance.citySlug,
         year: year,
+        metrics: metrics,
       );
       final manifestResource = manifest?.resource(resourceKey);
       final localVersion = await appDatabase.readSyncResourceVersion(
@@ -114,6 +123,11 @@ class SyncController extends Notifier<SyncState> {
         year: year,
         modeValue: mode,
         resource: resourceKey,
+      );
+      final persistedLastSync = await appDatabase.getLastSuccessfulSync(
+        city: appInstance.citySlug,
+        year: year,
+        modeValue: mode,
       );
 
       final needsDetailRepair = hasLocalDays
@@ -128,10 +142,10 @@ class SyncController extends Notifier<SyncState> {
 
       if (!forceRefresh &&
           _shouldSkipDaysSync(
-        hasLocalDays: hasLocalDays,
-        localVersion: localVersion,
-        remoteResource: manifestResource,
-      ) &&
+            hasLocalDays: hasLocalDays,
+            localVersion: localVersion,
+            remoteResource: manifestResource,
+          ) &&
           !needsDetailRepair) {
         final skippedAt = DateTime.now();
         await appDatabase.saveLastSuccessfulSync(
@@ -149,27 +163,82 @@ class SyncController extends Notifier<SyncState> {
           lastSyncedAt: skippedAt,
           message: 'Sin cambios en jornadas. Se mantienen los datos locales.',
         );
+        _trackSyncAnalytics(
+          analytics: analytics,
+          startedAt: startedAt,
+          result: 'manifest_skip',
+          planType: 'none',
+          forceRefresh: forceRefresh,
+          hasLocalDays: hasLocalDays,
+          syncedDaysCount: localDays.length,
+          syncedDetailsCount: 0,
+          detailFailures: 0,
+          metrics: metrics,
+        );
         return;
       }
 
-      final daysResponse = await apiClient.fetchScoped(
-        appInstance.citySlug,
-        year,
-        '/days',
-        queryParameters: const {'mode': mode},
+      final syncPlan = await _resolveSyncPlan(
+        apiClient: apiClient,
+        citySlug: appInstance.citySlug,
+        year: year,
+        since: persistedLastSync,
+        hasLocalDays: hasLocalDays,
+        forceRefresh: forceRefresh,
+        needsDetailRepair: needsDetailRepair,
+        metrics: metrics,
       );
 
-      final daysPayload = daysResponse.data;
-      if (daysPayload is! Map<String, dynamic>) {
-        throw StateError('Respuesta de jornadas invalida.');
+      if (syncPlan.type == _SyncType.noop) {
+        final syncedAt = DateTime.now();
+        await appDatabase.saveLastSuccessfulSync(
+          city: appInstance.citySlug,
+          year: year,
+          modeValue: mode,
+          syncedAt: syncedAt,
+        );
+        if (manifestResource != null && manifestResource.version.isNotEmpty) {
+          await appDatabase.saveSyncResourceVersion(
+            city: appInstance.citySlug,
+            year: year,
+            modeValue: mode,
+            resource: resourceKey,
+            version: manifestResource.version,
+          );
+        }
+
+        state = state.copyWith(
+          isSyncing: false,
+          isInitialSyncComplete: isInitialLaunch
+              ? true
+              : state.isInitialSyncComplete,
+          lastSyncedAt: syncedAt,
+          message:
+              'Sin cambios relevantes desde la última sincronización incremental.'
+              '${metrics.messageSuffix}',
+        );
+        _trackSyncAnalytics(
+          analytics: analytics,
+          startedAt: startedAt,
+          result: 'incremental_noop',
+          planType: _planLabel(syncPlan.type),
+          forceRefresh: forceRefresh,
+          hasLocalDays: hasLocalDays,
+          syncedDaysCount: 0,
+          syncedDetailsCount: 0,
+          detailFailures: 0,
+          metrics: metrics,
+        );
+        return;
       }
 
-      final rawList =
-          (daysPayload['data'] as List<dynamic>? ?? const <dynamic>[]);
-      final days = rawList
-          .whereType<Map<String, dynamic>>()
-          .map(DayIndexItem.fromJson)
-          .toList(growable: false);
+      final days = await _fetchDayIndex(
+        apiClient: apiClient,
+        citySlug: appInstance.citySlug,
+        year: year,
+        mode: mode,
+        metrics: metrics,
+      );
 
       await appDatabase.replaceDays(
         city: appInstance.citySlug,
@@ -178,43 +247,28 @@ class SyncController extends Notifier<SyncState> {
         items: days,
       );
 
+      final slugsToSync = _slugsForPlan(plan: syncPlan, dayIndex: days);
+
       var syncedDetails = 0;
       var detailFailures = 0;
 
-      for (final item in days) {
-        try {
-          final detailResponse = await apiClient.fetchScoped(
-            appInstance.citySlug,
-            year,
-            '/days/${item.slug}',
-            queryParameters: const {'mode': mode},
-          );
-
-          final detailPayload = detailResponse.data;
-          if (detailPayload is! Map<String, dynamic>) {
-            detailFailures += 1;
-            continue;
-          }
-
-          final detailData =
-              (detailPayload['data'] as Map<String, dynamic>? ?? const {});
-          final detail = DayDetail.fromJson(detailData);
-
-          await appDatabase.saveDayDetail(
-            city: appInstance.citySlug,
-            year: year,
-            modeValue: mode,
-            daySlugValue: item.slug,
-            detail: detail,
-          );
-          syncedDetails += 1;
-        } catch (_) {
-          detailFailures += 1;
-        }
+      if (slugsToSync.isNotEmpty) {
+        final detailResult = await _syncDayDetails(
+          apiClient: apiClient,
+          appDatabase: appDatabase,
+          citySlug: appInstance.citySlug,
+          year: year,
+          mode: mode,
+          slugs: slugsToSync,
+          metrics: metrics,
+        );
+        syncedDetails = detailResult.synced;
+        detailFailures = detailResult.failures;
       }
 
       ref.invalidate(jornadasProvider);
       ref.invalidate(dayDetailProvider);
+
       final syncedAt = DateTime.now();
       await appDatabase.saveLastSuccessfulSync(
         city: appInstance.citySlug,
@@ -242,8 +296,22 @@ class SyncController extends Notifier<SyncState> {
         lastSyncedAt: syncedAt,
         message: detailFailures == 0
             ? 'OK: ${days.length} jornadas y $syncedDetails detalles sincronizados.'
+                  '${metrics.messageSuffix}'
             : 'OK: ${days.length} jornadas sincronizadas. '
-                '$syncedDetails detalles actualizados y $detailFailures pendientes.',
+                  '$syncedDetails detalles actualizados y $detailFailures pendientes.'
+                  '${metrics.messageSuffix}',
+      );
+      _trackSyncAnalytics(
+        analytics: analytics,
+        startedAt: startedAt,
+        result: detailFailures == 0 ? 'success' : 'partial_success',
+        planType: _planLabel(syncPlan.type),
+        forceRefresh: forceRefresh,
+        hasLocalDays: hasLocalDays,
+        syncedDaysCount: days.length,
+        syncedDetailsCount: syncedDetails,
+        detailFailures: detailFailures,
+        metrics: metrics,
       );
     } catch (error) {
       state = state.copyWith(
@@ -257,7 +325,477 @@ class SyncController extends Notifier<SyncState> {
           isInitialLaunch: isInitialLaunch,
         ),
       );
+      _trackSyncAnalytics(
+        analytics: analytics,
+        startedAt: startedAt,
+        result: 'failure',
+        planType: 'unknown',
+        forceRefresh: forceRefresh,
+        hasLocalDays: hasLocalDays,
+        syncedDaysCount: 0,
+        syncedDetailsCount: 0,
+        detailFailures: 0,
+        metrics: metrics,
+        error: error.toString(),
+      );
     }
+  }
+
+  String _planLabel(_SyncType type) {
+    switch (type) {
+      case _SyncType.noop:
+        return 'noop';
+      case _SyncType.partial:
+        return 'partial';
+      case _SyncType.full:
+        return 'full';
+    }
+  }
+
+  void _trackSyncAnalytics({
+    required AppAnalytics? analytics,
+    required DateTime startedAt,
+    required String result,
+    required String planType,
+    required bool forceRefresh,
+    required bool hasLocalDays,
+    required int syncedDaysCount,
+    required int syncedDetailsCount,
+    required int detailFailures,
+    required _SyncMetrics metrics,
+    String? error,
+  }) {
+    if (analytics == null) {
+      return;
+    }
+
+    final elapsedMs = DateTime.now().difference(startedAt).inMilliseconds;
+    final parameters = <String, Object>{
+      'result': result,
+      'plan': planType,
+      'force_refresh': forceRefresh ? 1 : 0,
+      'had_local_days': hasLocalDays ? 1 : 0,
+      'days_synced': syncedDaysCount,
+      'details_synced': syncedDetailsCount,
+      'detail_failures': detailFailures,
+      'retries': metrics.retryAttempts,
+      'batch_splits': metrics.batchSplits,
+      'batches': metrics.batchesFetched,
+      'fallbacks': metrics.singleFallbacks,
+      'invalidated_slugs': metrics.invalidatedSlugs,
+      'duration_ms': elapsedMs,
+    };
+    if (error != null && error.isNotEmpty) {
+      parameters['error'] = error.length > 100
+          ? error.substring(0, 100)
+          : error;
+    }
+
+    analytics.track('sync_run', parameters: parameters);
+  }
+
+  Future<_SyncPlan> _resolveSyncPlan({
+    required LareviraApiClient apiClient,
+    required String citySlug,
+    required int year,
+    required DateTime? since,
+    required bool hasLocalDays,
+    required bool forceRefresh,
+    required bool needsDetailRepair,
+    required _SyncMetrics metrics,
+  }) async {
+    if (forceRefresh || !hasLocalDays || needsDetailRepair || since == null) {
+      return const _SyncPlan.full();
+    }
+
+    final changes = await _fetchSyncChanges(
+      apiClient: apiClient,
+      citySlug: citySlug,
+      year: year,
+      since: since,
+      metrics: metrics,
+    );
+
+    if (changes == null) {
+      return const _SyncPlan.full();
+    }
+
+    if (_requiresFullRefresh(changes)) {
+      return const _SyncPlan.full();
+    }
+
+    if (changes.days.changedSlugs.isEmpty) {
+      return const _SyncPlan.noop();
+    }
+
+    return _SyncPlan.partial(changes.days.changedSlugs);
+  }
+
+  bool _requiresFullRefresh(SyncChanges changes) {
+    if (changes.days.fullResyncRequired ||
+        changes.brotherhoods.fullResyncRequired ||
+        changes.processionEvents.fullResyncRequired ||
+        changes.itineraries.fullResyncRequired) {
+      return true;
+    }
+
+    if (changes.processionEvents.changedEventIds.isNotEmpty ||
+        changes.itineraries.changedEventIds.isNotEmpty) {
+      return true;
+    }
+
+    return false;
+  }
+
+  List<String> _slugsForPlan({
+    required _SyncPlan plan,
+    required List<DayIndexItem> dayIndex,
+  }) {
+    final all = dayIndex
+        .map((item) => item.slug.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
+
+    switch (plan.type) {
+      case _SyncType.noop:
+        return const [];
+      case _SyncType.full:
+        return all.toList(growable: false);
+      case _SyncType.partial:
+        final changed = plan.changedSlugs.toSet();
+        final selected = <String>[];
+        for (final slug in changed) {
+          if (all.contains(slug)) {
+            selected.add(slug);
+          }
+        }
+        return selected;
+    }
+  }
+
+  Future<_DetailSyncResult> _syncDayDetails({
+    required LareviraApiClient apiClient,
+    required AppDatabase appDatabase,
+    required String citySlug,
+    required int year,
+    required String mode,
+    required List<String> slugs,
+    required _SyncMetrics metrics,
+  }) async {
+    var synced = 0;
+    var failures = 0;
+
+    final queue = <List<String>>[
+      for (final batch in _chunk(slugs, size: 80)) batch,
+    ];
+
+    while (queue.isNotEmpty) {
+      final batch = queue.removeAt(0);
+      _DayBatchResult batchResult;
+
+      try {
+        batchResult = await _fetchDayDetailsBatch(
+          apiClient: apiClient,
+          citySlug: citySlug,
+          year: year,
+          mode: mode,
+          slugs: batch,
+          metrics: metrics,
+        );
+        metrics.batchesFetched += 1;
+      } on DioException catch (error) {
+        if (_shouldSplitBatch(error, batch.length)) {
+          final splitIndex = batch.length ~/ 2;
+          queue.insert(0, batch.sublist(splitIndex));
+          queue.insert(0, batch.sublist(0, splitIndex));
+          metrics.batchSplits += 1;
+          continue;
+        }
+
+        for (final slug in batch) {
+          metrics.singleFallbacks += 1;
+          final singleDetail = await _fetchSingleDayDetail(
+            apiClient: apiClient,
+            citySlug: citySlug,
+            year: year,
+            mode: mode,
+            slug: slug,
+            metrics: metrics,
+          );
+          if (singleDetail == null) {
+            failures += 1;
+            continue;
+          }
+
+          await appDatabase.saveDayDetail(
+            city: citySlug,
+            year: year,
+            modeValue: mode,
+            daySlugValue: slug,
+            detail: singleDetail,
+          );
+          synced += 1;
+        }
+        continue;
+      }
+
+      final returnedBySlug = <String, DayDetail>{};
+      for (final detail in batchResult.details) {
+        final slug = detail.slug.trim();
+        if (slug.isEmpty) {
+          continue;
+        }
+
+        returnedBySlug[slug] = detail;
+      }
+
+      final missingSlugs = batchResult.missingSlugs.toSet();
+      if (batchResult.missingEventIds.isNotEmpty) {
+        // We don't have day mapping for event IDs locally, so force fallback
+        // resolution slug-by-slug for this chunk.
+        missingSlugs.addAll(batch);
+      }
+
+      for (final slug in batch) {
+        final fromBatch = returnedBySlug[slug];
+        if (fromBatch != null && !missingSlugs.contains(slug)) {
+          await appDatabase.saveDayDetail(
+            city: citySlug,
+            year: year,
+            modeValue: mode,
+            daySlugValue: slug,
+            detail: fromBatch,
+          );
+          synced += 1;
+          continue;
+        }
+
+        if (missingSlugs.contains(slug)) {
+          await appDatabase.deleteDayDetail(
+            city: citySlug,
+            year: year,
+            modeValue: mode,
+            daySlugValue: slug,
+          );
+          metrics.invalidatedSlugs += 1;
+        }
+
+        metrics.singleFallbacks += 1;
+        final singleDetail = await _fetchSingleDayDetail(
+          apiClient: apiClient,
+          citySlug: citySlug,
+          year: year,
+          mode: mode,
+          slug: slug,
+          metrics: metrics,
+        );
+
+        if (singleDetail == null) {
+          failures += 1;
+          continue;
+        }
+
+        await appDatabase.saveDayDetail(
+          city: citySlug,
+          year: year,
+          modeValue: mode,
+          daySlugValue: slug,
+          detail: singleDetail,
+        );
+        synced += 1;
+      }
+    }
+
+    return _DetailSyncResult(synced: synced, failures: failures);
+  }
+
+  bool _shouldSplitBatch(DioException error, int batchSize) {
+    if (batchSize <= 1) {
+      return false;
+    }
+
+    final statusCode = error.response?.statusCode;
+    if (statusCode == 413) {
+      return true;
+    }
+
+    return error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout;
+  }
+
+  Future<_DayBatchResult> _fetchDayDetailsBatch({
+    required LareviraApiClient apiClient,
+    required String citySlug,
+    required int year,
+    required String mode,
+    required List<String> slugs,
+    required _SyncMetrics metrics,
+  }) async {
+    if (slugs.isEmpty) {
+      return const _DayBatchResult.empty();
+    }
+
+    final response = await _retryRequest(() {
+      return apiClient.fetchScoped(
+        citySlug,
+        year,
+        '/days-batch',
+        queryParameters: {'mode': mode, 'slugs': slugs.join(',')},
+      );
+    }, metrics: metrics);
+
+    final payload = response.data;
+    if (payload is! Map<String, dynamic>) {
+      return const _DayBatchResult.empty();
+    }
+
+    final data = payload['data'];
+    final details = <DayDetail>[];
+    final missingSlugs = <String>{};
+    final missingEventIds = <int>{};
+
+    _collectMissingKeys(payload['meta'], missingSlugs, missingEventIds);
+
+    if (data is List<dynamic>) {
+      for (final item in data) {
+        if (item is! Map<String, dynamic>) {
+          continue;
+        }
+        details.add(DayDetail.fromJson(item));
+      }
+      return _DayBatchResult(
+        details: details,
+        missingSlugs: missingSlugs.toList(growable: false),
+        missingEventIds: missingEventIds.toList(growable: false),
+      );
+    }
+
+    if (data is Map<String, dynamic>) {
+      _collectMissingKeys(data['meta'], missingSlugs, missingEventIds);
+
+      if (data['items'] is List<dynamic>) {
+        final items = data['items'] as List<dynamic>;
+        for (final item in items) {
+          if (item is! Map<String, dynamic>) {
+            continue;
+          }
+          details.add(DayDetail.fromJson(item));
+        }
+        return _DayBatchResult(
+          details: details,
+          missingSlugs: missingSlugs.toList(growable: false),
+          missingEventIds: missingEventIds.toList(growable: false),
+        );
+      }
+
+      for (final entry in data.entries) {
+        if (entry.key == 'meta') {
+          continue;
+        }
+        if (entry.value is! Map<String, dynamic>) {
+          continue;
+        }
+
+        final item = <String, dynamic>{
+          ...(entry.value as Map<String, dynamic>),
+        };
+        if ((item['slug'] ?? '').toString().trim().isEmpty) {
+          item['slug'] = entry.key;
+        }
+        details.add(DayDetail.fromJson(item));
+      }
+    }
+
+    return _DayBatchResult(
+      details: details,
+      missingSlugs: missingSlugs.toList(growable: false),
+      missingEventIds: missingEventIds.toList(growable: false),
+    );
+  }
+
+  void _collectMissingKeys(
+    Object? rawMeta,
+    Set<String> missingSlugs,
+    Set<int> missingEventIds,
+  ) {
+    if (rawMeta is! Map<String, dynamic>) {
+      return;
+    }
+
+    final rawSlugs = (rawMeta['missing_slugs'] as List<dynamic>? ?? const []);
+    for (final value in rawSlugs) {
+      final slug = value.toString().trim();
+      if (slug.isNotEmpty) {
+        missingSlugs.add(slug);
+      }
+    }
+
+    final rawIds = (rawMeta['missing_ids'] as List<dynamic>? ?? const []);
+    for (final value in rawIds) {
+      if (value is num) {
+        missingEventIds.add(value.toInt());
+      }
+    }
+  }
+
+  Future<DayDetail?> _fetchSingleDayDetail({
+    required LareviraApiClient apiClient,
+    required String citySlug,
+    required int year,
+    required String mode,
+    required String slug,
+    required _SyncMetrics metrics,
+  }) async {
+    try {
+      final response = await _retryRequest(() {
+        return apiClient.fetchScoped(
+          citySlug,
+          year,
+          '/days/$slug',
+          queryParameters: {'mode': mode},
+        );
+      }, metrics: metrics);
+
+      final payload = response.data;
+      if (payload is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final data = (payload['data'] as Map<String, dynamic>? ?? const {});
+      return DayDetail.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<DayIndexItem>> _fetchDayIndex({
+    required LareviraApiClient apiClient,
+    required String citySlug,
+    required int year,
+    required String mode,
+    required _SyncMetrics metrics,
+  }) async {
+    final daysResponse = await _retryRequest(() {
+      return apiClient.fetchScoped(
+        citySlug,
+        year,
+        '/days',
+        queryParameters: {'mode': mode},
+      );
+    }, metrics: metrics);
+
+    final daysPayload = daysResponse.data;
+    if (daysPayload is! Map<String, dynamic>) {
+      throw StateError('Respuesta de jornadas invalida.');
+    }
+
+    final rawList =
+        (daysPayload['data'] as List<dynamic>? ?? const <dynamic>[]);
+    return rawList
+        .whereType<Map<String, dynamic>>()
+        .map(DayIndexItem.fromJson)
+        .toList(growable: false);
   }
 
   String _buildSyncErrorMessage(
@@ -281,12 +819,12 @@ class SyncController extends Notifier<SyncState> {
     required LareviraApiClient apiClient,
     required String citySlug,
     required int year,
+    required _SyncMetrics metrics,
   }) async {
     try {
-      final response = await apiClient.fetchScoped(
-        citySlug,
-        year,
-        '/sync-manifest',
+      final response = await _retryRequest(
+        () => apiClient.fetchScoped(citySlug, year, '/sync-manifest'),
+        metrics: metrics,
       );
       final payload = response.data;
       if (payload is! Map<String, dynamic>) {
@@ -298,6 +836,71 @@ class SyncController extends Notifier<SyncState> {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<SyncChanges?> _fetchSyncChanges({
+    required LareviraApiClient apiClient,
+    required String citySlug,
+    required int year,
+    required DateTime since,
+    required _SyncMetrics metrics,
+  }) async {
+    try {
+      final response = await _retryRequest(() {
+        return apiClient.fetchScoped(
+          citySlug,
+          year,
+          '/sync-changes',
+          queryParameters: {'since': since.toUtc().toIso8601String()},
+        );
+      }, metrics: metrics);
+      final payload = response.data;
+      if (payload is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final data = (payload['data'] as Map<String, dynamic>? ?? const {});
+      return SyncChanges.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Response<dynamic>> _retryRequest(
+    Future<Response<dynamic>> Function() run, {
+    required _SyncMetrics metrics,
+  }) async {
+    const maxAttempts = 4;
+    var attempt = 0;
+
+    while (true) {
+      attempt += 1;
+      try {
+        return await run();
+      } on DioException catch (error) {
+        if (attempt >= maxAttempts || !_isRetryable(error)) {
+          rethrow;
+        }
+        metrics.retryAttempts += 1;
+
+        final delayMs =
+            (500 * (1 << (attempt - 1))) + ((DateTime.now().microsecond % 220));
+        await Future<void>.delayed(Duration(milliseconds: delayMs));
+      }
+    }
+  }
+
+  bool _isRetryable(DioException error) {
+    final statusCode = error.response?.statusCode;
+    if (statusCode == 429 || (statusCode != null && statusCode >= 500)) {
+      return true;
+    }
+
+    return error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError ||
+        error.type == DioExceptionType.unknown;
   }
 
   bool _shouldSkipDaysSync({
@@ -383,6 +986,94 @@ class SyncController extends Notifier<SyncState> {
       return;
     }
 
-    state = state.copyWith(lastSyncedAt: persisted);
+    state = state.copyWith(
+      lastSyncedAt: persisted,
+      isInitialSyncComplete: true,
+    );
   }
+
+  Iterable<List<String>> _chunk(
+    List<String> values, {
+    required int size,
+  }) sync* {
+    if (size <= 0 || values.isEmpty) {
+      return;
+    }
+
+    for (var i = 0; i < values.length; i += size) {
+      final end = (i + size > values.length) ? values.length : i + size;
+      yield values.sublist(i, end);
+    }
+  }
+}
+
+class _DetailSyncResult {
+  const _DetailSyncResult({required this.synced, required this.failures});
+
+  final int synced;
+  final int failures;
+}
+
+class _DayBatchResult {
+  const _DayBatchResult({
+    required this.details,
+    required this.missingSlugs,
+    required this.missingEventIds,
+  });
+
+  const _DayBatchResult.empty()
+    : details = const <DayDetail>[],
+      missingSlugs = const <String>[],
+      missingEventIds = const <int>[];
+
+  final List<DayDetail> details;
+  final List<String> missingSlugs;
+  final List<int> missingEventIds;
+}
+
+class _SyncMetrics {
+  _SyncMetrics({required this.exposeInMessage});
+
+  final bool exposeInMessage;
+  int retryAttempts = 0;
+  int batchSplits = 0;
+  int batchesFetched = 0;
+  int singleFallbacks = 0;
+  int invalidatedSlugs = 0;
+
+  String get messageSuffix {
+    if (!exposeInMessage) {
+      return '';
+    }
+
+    if (retryAttempts == 0 &&
+        batchSplits == 0 &&
+        batchesFetched == 0 &&
+        singleFallbacks == 0 &&
+        invalidatedSlugs == 0) {
+      return '';
+    }
+
+    return ' [métricas: batches=$batchesFetched, retries=$retryAttempts, '
+        'splits=$batchSplits, fallbacks=$singleFallbacks, '
+        'invalidaciones=$invalidatedSlugs]';
+  }
+}
+
+enum _SyncType { noop, partial, full }
+
+class _SyncPlan {
+  const _SyncPlan._({required this.type, required this.changedSlugs});
+
+  const _SyncPlan.noop()
+    : this._(type: _SyncType.noop, changedSlugs: const <String>[]);
+
+  const _SyncPlan.full()
+    : this._(type: _SyncType.full, changedSlugs: const <String>[]);
+
+  _SyncPlan.partial(List<String> changedSlugs)
+    : this._(type: _SyncType.partial, changedSlugs: changedSlugs);
+
+  final _SyncType type;
+  final List<String> changedSlugs;
 }

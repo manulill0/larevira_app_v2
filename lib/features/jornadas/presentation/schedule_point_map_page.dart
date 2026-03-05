@@ -81,10 +81,7 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
       await map.easeTo(
         CameraOptions(
           center: Point(
-            coordinates: Position(
-              point!.longitude!,
-              point.latitude!,
-            ),
+            coordinates: Position(point!.longitude!, point.latitude!),
           ),
           zoom: 16,
         ),
@@ -236,13 +233,13 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
             _updateSelectedTime(
               _clampToRange(
                 _roundToNearestQuarterHour(
-                DateTime(
-                  _selectedTime.year,
-                  _selectedTime.month,
-                  _selectedTime.day,
-                  DateTime.now().hour,
-                  DateTime.now().minute,
-                ),
+                  DateTime(
+                    _selectedTime.year,
+                    _selectedTime.month,
+                    _selectedTime.day,
+                    DateTime.now().hour,
+                    DateTime.now().minute,
+                  ),
                 ),
                 min: widget.minSelectableTime,
                 max: widget.maxSelectableTime,
@@ -312,9 +309,7 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
                       final label = pointTime == null
                           ? _currentPointName
                           : '$pointTime · $_currentPointName';
-                      final textStyle = Theme.of(context)
-                          .textTheme
-                          .titleSmall
+                      final textStyle = Theme.of(context).textTheme.titleSmall
                           ?.copyWith(
                             fontWeight: FontWeight.w800,
                             color: colorScheme.primary,
@@ -380,12 +375,7 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
                                     mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        label,
-                                        style: textStyle,
-                                      ),
-                                    ],
+                                    children: [Text(label, style: textStyle)],
                                   ),
                                 ),
                               ),
@@ -410,7 +400,10 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
   }
 }
 
-SchedulePoint? _pointForMoment(List<SchedulePoint> points, DateTime selectedTime) {
+SchedulePoint? _pointForMoment(
+  List<SchedulePoint> points,
+  DateTime selectedTime,
+) {
   final timedPoints = points.where((point) => point.plannedAt != null).toList()
     ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
 
@@ -579,10 +572,7 @@ class _FloatingTimeSelector extends StatelessWidget {
 }
 
 class _TimeShiftButton extends StatelessWidget {
-  const _TimeShiftButton({
-    required this.icon,
-    required this.onPressed,
-  });
+  const _TimeShiftButton({required this.icon, required this.onPressed});
 
   final IconData icon;
   final VoidCallback onPressed;

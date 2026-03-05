@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_page_surfaces.dart';
 import '../application/sync_controller.dart';
 
 class AppStartupGate extends ConsumerStatefulWidget {
@@ -24,16 +24,12 @@ class _AppStartupGateState extends ConsumerState<AppStartupGate> {
   Widget build(BuildContext context) {
     final syncState = ref.watch(syncControllerProvider);
 
-    return _StartupSplash(
-      isSyncing: syncState.isSyncing,
-    );
+    return _StartupSplash(isSyncing: syncState.isSyncing);
   }
 }
 
 class _StartupSplash extends StatelessWidget {
-  const _StartupSplash({
-    required this.isSyncing,
-  });
+  const _StartupSplash({required this.isSyncing});
 
   final bool isSyncing;
 
@@ -41,24 +37,11 @@ class _StartupSplash extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? const [
-                    AppColors.backgroundDarkTop,
-                    AppColors.backgroundDarkBottom,
-                  ]
-                : const [
-                    AppColors.backgroundLightTop,
-                    AppColors.backgroundLightBottom,
-                  ],
-          ),
+          gradient: AppPageSurfaces.startupBackground(theme.brightness),
         ),
         child: SafeArea(
           child: Center(

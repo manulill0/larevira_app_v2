@@ -105,6 +105,22 @@ class LareviraApiClient {
     await _appDatabase.clearHttpCache();
   }
 
+  Future<Response<dynamic>> post(
+    String resourcePath, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+  }) {
+    final normalized = resourcePath.startsWith('/')
+        ? resourcePath
+        : '/$resourcePath';
+
+    return _dio.post<dynamic>(
+      normalized,
+      data: data,
+      queryParameters: queryParameters,
+    );
+  }
+
   String _cacheKeyFor(String path, Map<String, dynamic>? queryParameters) {
     final sortedQuery = <String, dynamic>{...(queryParameters ?? const {})};
     final orderedKeys = sortedQuery.keys.toList()..sort();

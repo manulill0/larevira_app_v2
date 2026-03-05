@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/day_index_item.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_page_surfaces.dart';
 import '../../../core/widgets/adaptive_app_bar_title.dart';
+import '../../../core/widgets/sliver_scroll_state_mixin.dart';
 import '../application/jornadas_controller.dart';
 
 class JornadasPage extends ConsumerStatefulWidget {
@@ -14,70 +16,31 @@ class JornadasPage extends ConsumerStatefulWidget {
   ConsumerState<JornadasPage> createState() => _JornadasPageState();
 }
 
-class _JornadasPageState extends ConsumerState<JornadasPage> {
-  bool _hasScrolled = false;
-
+class _JornadasPageState extends ConsumerState<JornadasPage>
+    with SliverScrollStateMixin<JornadasPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final backgroundTop = isDark
-        ? AppColors.backgroundDarkTop
-        : AppColors.lightPage;
-    final backgroundMid = isDark
-        ? Color.lerp(
-            AppColors.backgroundDarkTop,
-            AppColors.backgroundDarkBottom,
-            0.45,
-          )!
-        : Color.lerp(
-            AppColors.lightSurface,
-            AppColors.backgroundLightTop,
-            0.55,
-          )!;
-    final backgroundBottom = isDark
-        ? AppColors.backgroundDarkBottom
-        : AppColors.backgroundLightBottom;
-    final appBarBackground = isDark
-        ? AppColors.backgroundDarkTop
-        : AppColors.lightChrome;
+    final brightness = theme.brightness;
+    final appBarBackground = AppPageSurfaces.sliverAppBarBackground(brightness);
     final jornadasAsync = ref.watch(jornadasProvider);
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            backgroundTop,
-            backgroundMid,
-            backgroundBottom,
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        gradient: AppPageSurfaces.jornadasBackground(brightness),
       ),
       child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification.depth != 0) {
-            return false;
-          }
-
-          final nextHasScrolled = notification.metrics.pixels > 0;
-          if (nextHasScrolled != _hasScrolled) {
-            setState(() {
-              _hasScrolled = nextHasScrolled;
-            });
-          }
-          return false;
-        },
+        onNotification: handleRootScrollNotification,
         child: CustomScrollView(
           slivers: [
             SliverAppBar(
               pinned: true,
-              backgroundColor:
-                  _hasScrolled ? appBarBackground : Colors.transparent,
+              backgroundColor: hasScrolled
+                  ? appBarBackground
+                  : Colors.transparent,
               surfaceTintColor: Colors.transparent,
               scrolledUnderElevation: 0,
-              forceMaterialTransparency: !_hasScrolled,
+              forceMaterialTransparency: !hasScrolled,
               title: const AdaptiveAppBarTitle('Jornadas'),
             ),
             SliverPadding(
@@ -238,18 +201,13 @@ class _LoadingState extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 32),
-      child: Center(
-        child: CircularProgressIndicator(),
-      ),
+      child: Center(child: CircularProgressIndicator()),
     );
   }
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorState({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -264,9 +222,9 @@ class _ErrorState extends StatelessWidget {
           children: [
             Text(
               'No se pudo cargar la API',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             SelectableText(message),

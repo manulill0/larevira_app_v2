@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_page_surfaces.dart';
 import '../../../core/widgets/adaptive_app_bar_title.dart';
+import '../../../core/widgets/sliver_scroll_state_mixin.dart';
 
 class FeaturePlaceholderPage extends StatefulWidget {
   const FeaturePlaceholderPage({
@@ -10,52 +11,41 @@ class FeaturePlaceholderPage extends StatefulWidget {
     required this.icon,
     required this.summary,
     required this.highlights,
+    this.extraContent = const [],
   });
 
   final String title;
   final IconData icon;
   final String summary;
   final List<String> highlights;
+  final List<Widget> extraContent;
 
   @override
   State<FeaturePlaceholderPage> createState() => _FeaturePlaceholderPageState();
 }
 
-class _FeaturePlaceholderPageState extends State<FeaturePlaceholderPage> {
-  bool _hasScrolled = false;
-
+class _FeaturePlaceholderPageState extends State<FeaturePlaceholderPage>
+    with SliverScrollStateMixin<FeaturePlaceholderPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final appBarBackground = isDark
-        ? AppColors.backgroundDarkTop
-        : AppColors.lightChrome;
+    final appBarBackground = AppPageSurfaces.sliverAppBarBackground(
+      theme.brightness,
+    );
 
     return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification.depth != 0) {
-          return false;
-        }
-
-        final nextHasScrolled = notification.metrics.pixels > 0;
-        if (nextHasScrolled != _hasScrolled) {
-          setState(() {
-            _hasScrolled = nextHasScrolled;
-          });
-        }
-        return false;
-      },
+      onNotification: handleRootScrollNotification,
       child: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
-            backgroundColor:
-                _hasScrolled ? appBarBackground : Colors.transparent,
+            backgroundColor: hasScrolled
+                ? appBarBackground
+                : Colors.transparent,
             surfaceTintColor: Colors.transparent,
             scrolledUnderElevation: 0,
-            forceMaterialTransparency: !_hasScrolled,
+            forceMaterialTransparency: !hasScrolled,
             title: AdaptiveAppBarTitle(widget.title),
           ),
           SliverPadding(
@@ -66,10 +56,7 @@ class _FeaturePlaceholderPageState extends State<FeaturePlaceholderPage> {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        colorScheme.primary,
-                        colorScheme.secondary,
-                      ],
+                      colors: [colorScheme.primary, colorScheme.secondary],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -121,6 +108,7 @@ class _FeaturePlaceholderPageState extends State<FeaturePlaceholderPage> {
                   ),
                   const SizedBox(height: 12),
                 ],
+                ...widget.extraContent,
               ],
             ),
           ),
