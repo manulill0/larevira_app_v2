@@ -24,6 +24,17 @@
       ]
     },
     {
+      "name": "Flutter iPad (Release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "00008020-000A38103CE1002E",
+      "flutterMode": "release",
+      "toolArgs": [
+        "--dart-define-from-file=.env.production.json"
+      ]
+    },
+    {
       "name": "Flutter iPhone (Profile)",
       "request": "launch",
       "type": "dart",

@@ -18,6 +18,8 @@ class JornadasPage extends ConsumerStatefulWidget {
 
 class _JornadasPageState extends ConsumerState<JornadasPage>
     with SliverScrollStateMixin<JornadasPage> {
+  static const _tabletBreakpoint = 840.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -53,13 +55,40 @@ class _JornadasPageState extends ConsumerState<JornadasPage>
                         return const _EmptyState();
                       }
 
-                      return Column(
-                        children: [
-                          for (final item in items) ...[
-                            _JornadaCard(item: item),
-                            const SizedBox(height: 10),
-                          ],
-                        ],
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isTablet =
+                              constraints.maxWidth >= _tabletBreakpoint;
+
+                          if (!isTablet) {
+                            return Column(
+                              children: [
+                                for (final item in items) ...[
+                                  _JornadaCard(item: item),
+                                  const SizedBox(height: 10),
+                                ],
+                              ],
+                            );
+                          }
+
+                          final columns = constraints.maxWidth >= 1120 ? 3 : 2;
+
+                          return GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: columns,
+                                  mainAxisSpacing: 10,
+                                  crossAxisSpacing: 10,
+                                  mainAxisExtent: 92,
+                                ),
+                            itemCount: items.length,
+                            itemBuilder: (context, index) {
+                              return _JornadaCard(item: items[index]);
+                            },
+                          );
+                        },
                       );
                     },
                     loading: () => const _LoadingState(),

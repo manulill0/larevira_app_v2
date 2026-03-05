@@ -21,12 +21,8 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  static const _screenNames = <String>[
-    'today',
-    'days',
-    'planning',
-    'more',
-  ];
+  static const _tabletBreakpoint = 840.0;
+  static const _screenNames = <String>['today', 'days', 'planning', 'more'];
 
   @override
   void initState() {
@@ -56,55 +52,118 @@ class _HomeShellState extends State<HomeShell> {
         : colorScheme.secondary.withValues(alpha: 0.08);
     final navigationBackground =
         theme.navigationBarTheme.backgroundColor ?? colorScheme.surface;
+    final railIndicatorColor = isDark
+        ? colorScheme.primary.withValues(alpha: 0.18)
+        : colorScheme.secondary.withValues(alpha: 0.78);
 
-    return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              backgroundTop,
-              backgroundBottom,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useTabletLayout = constraints.maxWidth >= _tabletBreakpoint;
+
+        return Scaffold(
+          body: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [backgroundTop, backgroundBottom],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: useTabletLayout
+                ? SafeArea(
+                    child: Row(
+                      children: [
+                        ColoredBox(
+                          color: navigationBackground.withValues(
+                            alpha: isDark ? 0.72 : 0.9,
+                          ),
+                          child: NavigationRail(
+                            selectedIndex: widget.navigationShell.currentIndex,
+                            onDestinationSelected: _selectTab,
+                            labelType: NavigationRailLabelType.all,
+                            useIndicator: true,
+                            indicatorColor: railIndicatorColor,
+                            groupAlignment: -1,
+                            destinations: const [
+                              NavigationRailDestination(
+                                icon: Icon(Icons.wb_sunny_outlined),
+                                selectedIcon: Icon(Icons.wb_sunny_rounded),
+                                label: Text('Hoy'),
+                              ),
+                              NavigationRailDestination(
+                                icon: Icon(Icons.calendar_view_week_outlined),
+                                selectedIcon: Icon(
+                                  Icons.calendar_view_week_rounded,
+                                ),
+                                label: Text('Jornadas'),
+                              ),
+                              NavigationRailDestination(
+                                icon: Icon(Icons.route_outlined),
+                                selectedIcon: Icon(Icons.route_rounded),
+                                label: Text('Mi Planning'),
+                              ),
+                              NavigationRailDestination(
+                                icon: Icon(Icons.more_horiz_outlined),
+                                selectedIcon: Icon(Icons.more_horiz_rounded),
+                                label: Text('Más'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.4,
+                          ),
+                        ),
+                        Expanded(
+                          child: _AnimatedBranchContainer(
+                            currentIndex: widget.navigationShell.currentIndex,
+                            children: widget.children,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : _AnimatedBranchContainer(
+                    currentIndex: widget.navigationShell.currentIndex,
+                    children: widget.children,
+                  ),
           ),
-        ),
-        child: _AnimatedBranchContainer(
-          currentIndex: widget.navigationShell.currentIndex,
-          children: widget.children,
-        ),
-      ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          color: navigationBackground,
-        ),
-        child: NavigationBar(
-          selectedIndex: widget.navigationShell.currentIndex,
-          onDestinationSelected: _selectTab,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.wb_sunny_outlined),
-              selectedIcon: Icon(Icons.wb_sunny_rounded),
-              label: 'Hoy',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.calendar_view_week_outlined),
-              selectedIcon: Icon(Icons.calendar_view_week_rounded),
-              label: 'Jornadas',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.route_outlined),
-              selectedIcon: Icon(Icons.route_rounded),
-              label: 'Mi Planning',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz_outlined),
-              selectedIcon: Icon(Icons.more_horiz_rounded),
-              label: 'Más',
-            ),
-          ],
-        ),
-      ),
+          bottomNavigationBar: useTabletLayout
+              ? null
+              : DecoratedBox(
+                  decoration: BoxDecoration(color: navigationBackground),
+                  child: NavigationBar(
+                    selectedIndex: widget.navigationShell.currentIndex,
+                    onDestinationSelected: _selectTab,
+                    destinations: const [
+                      NavigationDestination(
+                        icon: Icon(Icons.wb_sunny_outlined),
+                        selectedIcon: Icon(Icons.wb_sunny_rounded),
+                        label: 'Hoy',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.calendar_view_week_outlined),
+                        selectedIcon: Icon(Icons.calendar_view_week_rounded),
+                        label: 'Jornadas',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.route_outlined),
+                        selectedIcon: Icon(Icons.route_rounded),
+                        label: 'Mi Planning',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.more_horiz_outlined),
+                        selectedIcon: Icon(Icons.more_horiz_rounded),
+                        label: 'Más',
+                      ),
+                    ],
+                  ),
+                ),
+        );
+      },
     );
   }
 
@@ -117,9 +176,7 @@ class _HomeShellState extends State<HomeShell> {
     widget.navigationShell.goBranch(tab.branchIndex, initialLocation: false);
     widget.analytics?.track(
       'tab_selected',
-      parameters: <String, Object>{
-        'tab': _screenNames[index],
-      },
+      parameters: <String, Object>{'tab': _screenNames[index]},
     );
   }
 
@@ -158,10 +215,7 @@ class _AnimatedBranchContainer extends StatelessWidget {
                       duration: const Duration(milliseconds: 140),
                       curve: Curves.easeOut,
                       builder: (context, value, child) {
-                        return Opacity(
-                          opacity: value,
-                          child: child,
-                        );
+                        return Opacity(opacity: value, child: child);
                       },
                       child: children[index],
                     )

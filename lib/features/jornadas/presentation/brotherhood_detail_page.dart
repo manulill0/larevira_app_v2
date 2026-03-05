@@ -22,6 +22,7 @@ class BrotherhoodDetailPage extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
+    final isTablet = MediaQuery.sizeOf(context).width >= 840;
     final accent =
         _parseColor(event?.brotherhoodColorHex ?? '') ?? colorScheme.primary;
     final backgroundTop = isDark
@@ -32,115 +33,110 @@ class BrotherhoodDetailPage extends StatelessWidget {
         : AppColors.backgroundLightBottom;
     final title = event?.brotherhoodName ?? 'Hermandad';
 
-    return Scaffold(
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 2,
-        onDestinationSelected: (index) {
-          if (index == 2) {
-            return;
-          }
-          Navigator.of(context).pop(index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.schedule_outlined),
-            selectedIcon: Icon(Icons.schedule_rounded),
-            label: 'Horario',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map_rounded),
-            label: 'Mapa',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups_rounded),
-            label: 'Hermandades',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.route_outlined),
-            selectedIcon: Icon(Icons.route_rounded),
-            label: 'Plan',
-          ),
-        ],
-      ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [backgroundTop, backgroundBottom],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+    final content = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [backgroundTop, backgroundBottom],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              backgroundColor: AppPageSurfaces.sliverAppBarBackground(
-                theme.brightness,
-              ),
-              title: AdaptiveAppBarTitle(title),
-              actions: const [SizedBox(width: kToolbarHeight)],
+      ),
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            backgroundColor: AppPageSurfaces.sliverAppBarBackground(
+              theme.brightness,
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              sliver: SliverList.list(
-                children: event == null
-                    ? [
-                        _InfoBlock(
-                          title: 'Detalle pendiente',
-                          child: Text(
-                            'La ruta está preparada para esta hermandad ($slug), pero todavía necesitamos cargar aquí el detalle completo desde la API.',
+            title: AdaptiveAppBarTitle(title),
+            actions: const [SizedBox(width: kToolbarHeight)],
+          ),
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              isTablet ? 20 : 16,
+              8,
+              isTablet ? 20 : 16,
+              24,
+            ),
+            sliver: SliverList.list(
+              children: event == null
+                  ? [
+                      _InfoBlock(
+                        title: 'Detalle pendiente',
+                        child: Text(
+                          'La ruta está preparada para esta hermandad ($slug), pero todavía necesitamos cargar aquí el detalle completo desde la API.',
+                        ),
+                      ),
+                    ]
+                  : [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.18),
                           ),
                         ),
-                      ]
-                    : [
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surface,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: accent.withValues(alpha: 0.18),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 18,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: accent,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 18,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  color: accent,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      event!.brotherhoodName,
-                                      style: theme.textTheme.titleLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w800,
-                                          ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    event!.brotherhoodName,
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w800,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      dayName ?? 'Jornada',
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                          ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    dayName ?? 'Jornada',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
+                      ),
+                      const SizedBox(height: 16),
+                      if (isTablet)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _InfoBlock(
+                                title: 'Estado',
+                                child: Text(_statusLabel(event!)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _InfoBlock(
+                                title: 'Identificador',
+                                child: SelectableText(
+                                  event!.brotherhoodSlug.isEmpty
+                                      ? 'Sin slug disponible'
+                                      : event!.brotherhoodSlug,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      else ...[
                         _InfoBlock(
                           title: 'Estado',
                           child: Text(_statusLabel(event!)),
@@ -154,7 +150,47 @@ class BrotherhoodDetailPage extends StatelessWidget {
                                 : event!.brotherhoodSlug,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                      ],
+                      const SizedBox(height: 12),
+                      if (isTablet)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _InfoBlock(
+                                title: 'Color',
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 18,
+                                      height: 18,
+                                      decoration: BoxDecoration(
+                                        color: accent,
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(event!.brotherhoodColorHex),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _InfoBlock(
+                                title: 'Nota oficial',
+                                child: Text(
+                                  event!.officialNote.isEmpty
+                                      ? 'No hay nota oficial para esta hermandad en la jornada.'
+                                      : event!.officialNote,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      else ...[
                         _InfoBlock(
                           title: 'Color',
                           child: Row(
@@ -181,19 +217,56 @@ class BrotherhoodDetailPage extends StatelessWidget {
                                 : event!.officialNote,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        const _InfoBlock(
-                          title: 'Detalle ampliado',
-                          child: Text(
-                            'Esta ficha ya está conectada al router. El siguiente paso será cargar aquí el detalle completo desde /brotherhoods/{slug}.',
-                          ),
-                        ),
                       ],
-              ),
+                      const SizedBox(height: 12),
+                      const _InfoBlock(
+                        title: 'Detalle ampliado',
+                        child: Text(
+                          'Esta ficha ya está conectada al router. El siguiente paso será cargar aquí el detalle completo desde /brotherhoods/{slug}.',
+                        ),
+                      ),
+                    ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+
+    return Scaffold(
+      bottomNavigationBar: isTablet
+          ? null
+          : NavigationBar(
+              selectedIndex: 2,
+              onDestinationSelected: (index) {
+                if (index == 2) {
+                  return;
+                }
+                Navigator.of(context).pop(index);
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.schedule_outlined),
+                  selectedIcon: Icon(Icons.schedule_rounded),
+                  label: 'Horario',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.map_outlined),
+                  selectedIcon: Icon(Icons.map_rounded),
+                  label: 'Mapa',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.groups_outlined),
+                  selectedIcon: Icon(Icons.groups_rounded),
+                  label: 'Hermandades',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.route_outlined),
+                  selectedIcon: Icon(Icons.route_rounded),
+                  label: 'Plan',
+                ),
+              ],
+            ),
+      body: content,
     );
   }
 }

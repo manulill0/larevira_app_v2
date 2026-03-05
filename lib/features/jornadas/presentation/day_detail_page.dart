@@ -30,6 +30,7 @@ class DayDetailPage extends ConsumerStatefulWidget {
 
 class _DayDetailPageState extends ConsumerState<DayDetailPage>
     with SliverScrollStateMixin<DayDetailPage> {
+  static const _tabletBreakpoint = 840.0;
   int _currentSection = 0;
   _ScheduleViewMode _scheduleViewMode = _ScheduleViewMode.cards;
   DateTime? _selectedScheduleTime;
@@ -48,6 +49,7 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage>
     final detail = detailAsync.asData?.value;
     final pageTitle = widget.item?.name ?? detail?.name ?? 'Jornada';
     final appBarBackground = AppPageSurfaces.sliverAppBarBackground(brightness);
+    final isTablet = MediaQuery.sizeOf(context).width >= _tabletBreakpoint;
     final scheduleEntries = detail == null
         ? const <_ScheduledEventEntry>[]
         : _buildScheduleEntries(
@@ -63,6 +65,8 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage>
         (_currentSection == 0 || _currentSection == 1) &&
         scheduleEntries.isNotEmpty;
     final showsFloatingHourSelector = hasFloatingHourSelectorSlot;
+    final lockParentScrollForBrotherhoodSplit =
+        isTablet && _currentSection == 2;
     final sectionPadding = _currentSection == 1
         ? EdgeInsets.zero
         : EdgeInsets.fromLTRB(
@@ -72,156 +76,209 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage>
             hasFloatingHourSelectorSlot ? 126 : 24,
           );
 
-    return Scaffold(
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentSection,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentSection = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.schedule_outlined),
-            selectedIcon: Icon(Icons.schedule_rounded),
-            label: 'Horario',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map_rounded),
-            label: 'Mapa',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups_rounded),
-            label: 'Hermandades',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.route_outlined),
-            selectedIcon: Icon(Icons.route_rounded),
-            label: 'Plan',
-          ),
-        ],
+    final content = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: AppPageSurfaces.jornadasBackground(brightness),
       ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: AppPageSurfaces.jornadasBackground(brightness),
-        ),
-        child: NotificationListener<ScrollNotification>(
-          onNotification: handleRootScrollNotification,
-          child: Stack(
-            children: [
-              CustomScrollView(
-                slivers: [
-                  SliverAppBar(
-                    pinned: true,
-                    backgroundColor: hasScrolled
-                        ? appBarBackground
-                        : Colors.transparent,
-                    surfaceTintColor: Colors.transparent,
-                    scrolledUnderElevation: 0,
-                    forceMaterialTransparency: !hasScrolled,
-                    title: AdaptiveAppBarTitle(pageTitle),
-                    actions: const [SizedBox(width: kToolbarHeight)],
-                  ),
-                  SliverPadding(
-                    padding: sectionPadding,
-                    sliver: SliverList.list(
-                      children: [
-                        detailAsync.when(
-                          data: (detail) => TweenAnimationBuilder<double>(
-                            key: ValueKey(_currentSection),
-                            tween: Tween<double>(begin: 0, end: 1),
-                            duration: const Duration(milliseconds: 140),
-                            curve: Curves.easeOut,
-                            builder: (context, value, child) {
-                              return Opacity(opacity: value, child: child);
+      child: NotificationListener<ScrollNotification>(
+        onNotification: handleRootScrollNotification,
+        child: Stack(
+          children: [
+            CustomScrollView(
+              physics: lockParentScrollForBrotherhoodSplit
+                  ? const NeverScrollableScrollPhysics()
+                  : null,
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  backgroundColor: hasScrolled
+                      ? appBarBackground
+                      : Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  scrolledUnderElevation: 0,
+                  forceMaterialTransparency: !hasScrolled,
+                  title: AdaptiveAppBarTitle(pageTitle),
+                  actions: const [SizedBox(width: kToolbarHeight)],
+                ),
+                SliverPadding(
+                  padding: sectionPadding,
+                  sliver: SliverList.list(
+                    children: [
+                      detailAsync.when(
+                        data: (detail) => TweenAnimationBuilder<double>(
+                          key: ValueKey(_currentSection),
+                          tween: Tween<double>(begin: 0, end: 1),
+                          duration: const Duration(milliseconds: 140),
+                          curve: Curves.easeOut,
+                          builder: (context, value, child) {
+                            return Opacity(opacity: value, child: child);
+                          },
+                          child: _SectionContent(
+                            currentSection: _currentSection,
+                            detail: _applyEditionOfficialRoute(
+                              detail,
+                              editionOfficialRoute,
+                            ),
+                            scheduleEntries: scheduleEntries,
+                            scheduleViewMode: _scheduleViewMode,
+                            selectedScheduleTime: effectiveSelectedScheduleTime,
+                            useBottomNavigation: !isTablet,
+                            onSelectedScheduleTimeChanged: (value) {
+                              setState(() {
+                                _selectedScheduleTime =
+                                    _clampScheduleTimeToEntries(
+                                      scheduleEntries,
+                                      value,
+                                    );
+                              });
                             },
-                            child: _SectionContent(
-                              currentSection: _currentSection,
-                              detail: _applyEditionOfficialRoute(
-                                detail,
-                                editionOfficialRoute,
-                              ),
-                              scheduleEntries: scheduleEntries,
-                              scheduleViewMode: _scheduleViewMode,
-                              selectedScheduleTime:
-                                  effectiveSelectedScheduleTime,
-                              onSelectedScheduleTimeChanged: (value) {
-                                setState(() {
-                                  _selectedScheduleTime =
-                                      _clampScheduleTimeToEntries(
-                                        scheduleEntries,
-                                        value,
-                                      );
-                                });
-                              },
-                              onSectionRequested: (index) {
-                                setState(() {
-                                  _currentSection = index;
-                                });
-                              },
-                              onScheduleViewModeChanged: (value) {
-                                setState(() {
-                                  _scheduleViewMode = value;
-                                });
-                              },
-                            ),
-                          ),
-                          loading: () => const _LoadingState(),
-                          error: (error, stackTrace) => _ErrorState(
-                            message: error.toString(),
-                            onRetry: () => ref.invalidate(
-                              dayDetailProvider(effectiveSlug),
-                            ),
+                            onSectionRequested: (index) {
+                              setState(() {
+                                _currentSection = index;
+                              });
+                            },
+                            onScheduleViewModeChanged: (value) {
+                              setState(() {
+                                _scheduleViewMode = value;
+                              });
+                            },
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (hasFloatingHourSelectorSlot)
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 16,
-                  child: SafeArea(
-                    top: false,
-                    child: _FloatingTimeSelector(
-                      selectedTime: effectiveSelectedScheduleTime!,
-                      visible: showsFloatingHourSelector,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedScheduleTime = _clampScheduleTimeToEntries(
-                            scheduleEntries,
-                            value,
-                          );
-                        });
-                      },
-                      onResetToNow: () {
-                        final now = testClock.enabled
-                            ? testClock.currentTime
-                            : DateTime.now();
-                        setState(() {
-                          _selectedScheduleTime = _clampScheduleTimeToEntries(
-                            scheduleEntries,
-                            _roundToNearestQuarterHour(
-                              _anchorReferenceTimeToScheduleDay(
-                                scheduleEntries,
-                                now,
-                              ),
-                            ),
-                          );
-                        });
-                      },
-                    ),
+                        loading: () => const _LoadingState(),
+                        error: (error, stackTrace) => _ErrorState(
+                          message: error.toString(),
+                          onRetry: () =>
+                              ref.invalidate(dayDetailProvider(effectiveSlug)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+              ],
+            ),
+            if (hasFloatingHourSelectorSlot)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: SafeArea(
+                  top: false,
+                  child: _FloatingTimeSelector(
+                    selectedTime: effectiveSelectedScheduleTime!,
+                    visible: showsFloatingHourSelector,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedScheduleTime = _clampScheduleTimeToEntries(
+                          scheduleEntries,
+                          value,
+                        );
+                      });
+                    },
+                    onResetToNow: () {
+                      final now = testClock.enabled
+                          ? testClock.currentTime
+                          : DateTime.now();
+                      setState(() {
+                        _selectedScheduleTime = _clampScheduleTimeToEntries(
+                          scheduleEntries,
+                          _roundToNearestQuarterHour(
+                            _anchorReferenceTimeToScheduleDay(
+                              scheduleEntries,
+                              now,
+                            ),
+                          ),
+                        );
+                      });
+                    },
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
+    );
+
+    return Scaffold(
+      bottomNavigationBar: isTablet
+          ? null
+          : NavigationBar(
+              selectedIndex: _currentSection,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _currentSection = index;
+                });
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.schedule_outlined),
+                  selectedIcon: Icon(Icons.schedule_rounded),
+                  label: 'Horario',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.map_outlined),
+                  selectedIcon: Icon(Icons.map_rounded),
+                  label: 'Mapa',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.groups_outlined),
+                  selectedIcon: Icon(Icons.groups_rounded),
+                  label: 'Hermandades',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.route_outlined),
+                  selectedIcon: Icon(Icons.route_rounded),
+                  label: 'Plan',
+                ),
+              ],
+            ),
+      body: isTablet
+          ? SafeArea(
+              child: Row(
+                children: [
+                  NavigationRail(
+                    selectedIndex: _currentSection,
+                    onDestinationSelected: (index) {
+                      setState(() {
+                        _currentSection = index;
+                      });
+                    },
+                    labelType: NavigationRailLabelType.all,
+                    groupAlignment: -1,
+                    destinations: const [
+                      NavigationRailDestination(
+                        icon: Icon(Icons.schedule_outlined),
+                        selectedIcon: Icon(Icons.schedule_rounded),
+                        label: Text('Horario'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.map_outlined),
+                        selectedIcon: Icon(Icons.map_rounded),
+                        label: Text('Mapa'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.groups_outlined),
+                        selectedIcon: Icon(Icons.groups_rounded),
+                        label: Text('Hermandades'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.route_outlined),
+                        selectedIcon: Icon(Icons.route_rounded),
+                        label: Text('Plan'),
+                      ),
+                    ],
+                  ),
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.4,
+                    ),
+                  ),
+                  Expanded(child: content),
+                ],
+              ),
+            )
+          : content,
     );
   }
 }
@@ -233,6 +290,7 @@ class _SectionContent extends StatelessWidget {
     required this.scheduleEntries,
     required this.scheduleViewMode,
     required this.selectedScheduleTime,
+    required this.useBottomNavigation,
     required this.onSelectedScheduleTimeChanged,
     required this.onSectionRequested,
     required this.onScheduleViewModeChanged,
@@ -243,6 +301,7 @@ class _SectionContent extends StatelessWidget {
   final List<_ScheduledEventEntry> scheduleEntries;
   final _ScheduleViewMode scheduleViewMode;
   final DateTime? selectedScheduleTime;
+  final bool useBottomNavigation;
   final ValueChanged<DateTime> onSelectedScheduleTimeChanged;
   final ValueChanged<int> onSectionRequested;
   final ValueChanged<_ScheduleViewMode> onScheduleViewModeChanged;
@@ -263,6 +322,7 @@ class _SectionContent extends StatelessWidget {
           detail: detail,
           entries: scheduleEntries,
           selectedTime: selectedScheduleTime,
+          useBottomNavigation: useBottomNavigation,
         );
       case 2:
         return _BrotherhoodsSection(
@@ -676,11 +736,13 @@ class _MapSection extends StatefulWidget {
     required this.detail,
     required this.entries,
     required this.selectedTime,
+    required this.useBottomNavigation,
   });
 
   final DayDetail detail;
   final List<_ScheduledEventEntry> entries;
   final DateTime? selectedTime;
+  final bool useBottomNavigation;
 
   @override
   State<_MapSection> createState() => _MapSectionState();
@@ -1064,7 +1126,7 @@ class _MapSectionState extends State<_MapSection> {
                 insets.top -
                 insets.bottom -
                 kToolbarHeight -
-                kBottomNavigationBarHeight)
+                (widget.useBottomNavigation ? kBottomNavigationBarHeight : 0))
             .clamp(360.0, 1200.0);
 
     return SizedBox(
@@ -1347,7 +1409,7 @@ class _TimedRoutePoint {
   final double routeIndex;
 }
 
-class _BrotherhoodsSection extends StatelessWidget {
+class _BrotherhoodsSection extends StatefulWidget {
   const _BrotherhoodsSection({
     required this.detail,
     required this.onSectionRequested,
@@ -1357,7 +1419,23 @@ class _BrotherhoodsSection extends StatelessWidget {
   final ValueChanged<int> onSectionRequested;
 
   @override
+  State<_BrotherhoodsSection> createState() => _BrotherhoodsSectionState();
+}
+
+class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
+  String? _selectedBrotherhoodSlug;
+
+  @override
+  void didUpdateWidget(covariant _BrotherhoodsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.detail != widget.detail) {
+      _selectedBrotherhoodSlug = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final detail = widget.detail;
     if (detail.processionEvents.isEmpty) {
       return const _InfoCard(
         title: 'Sin hermandades',
@@ -1365,24 +1443,177 @@ class _BrotherhoodsSection extends StatelessWidget {
       );
     }
 
-    return Column(
-      children: [
-        for (final event in detail.processionEvents) ...[
-          _ProcessionEventCard(
-            event: event,
-            onTap: () async {
-              final selectedSection = await context.pushBrotherhoodDetail<int>(
-                event,
-                dayName: detail.name,
-              );
-              if (selectedSection != null) {
-                onSectionRequested(selectedSection);
-              }
-            },
-          ),
-          const SizedBox(height: 12),
+    final isTablet = MediaQuery.sizeOf(context).width >= 840;
+    if (!isTablet) {
+      return Column(
+        children: [
+          for (final event in detail.processionEvents) ...[
+            _ProcessionEventCard(
+              event: event,
+              onTap: () async {
+                final selectedSection = await context
+                    .pushBrotherhoodDetail<int>(event, dayName: detail.name);
+                if (selectedSection != null) {
+                  widget.onSectionRequested(selectedSection);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
         ],
-      ],
+      );
+    }
+
+    final selectedSlug =
+        _selectedBrotherhoodSlug ??
+        detail.processionEvents.first.brotherhoodSlug;
+    final selectedEvent = detail.processionEvents.firstWhere(
+      (event) => event.brotherhoodSlug == selectedSlug,
+      orElse: () => detail.processionEvents.first,
+    );
+    final media = MediaQuery.sizeOf(context);
+    final insets = MediaQuery.paddingOf(context);
+    final panelHeight =
+        (media.height - insets.top - insets.bottom - kToolbarHeight - 24).clamp(
+          440.0,
+          media.height,
+        );
+
+    return SizedBox(
+      height: panelHeight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: ListView.separated(
+                physics: const ClampingScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 16),
+                itemCount: detail.processionEvents.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final event = detail.processionEvents[index];
+                  return _ProcessionEventCard(
+                    event: event,
+                    isSelected:
+                        event.brotherhoodSlug == selectedEvent.brotherhoodSlug,
+                    showOfficialNote: false,
+                    onTap: () {
+                      setState(() {
+                        _selectedBrotherhoodSlug = event.brotherhoodSlug;
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 8,
+            child: _BrotherhoodDetailPanel(
+              event: selectedEvent,
+              dayName: detail.name,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BrotherhoodDetailPanel extends StatelessWidget {
+  const _BrotherhoodDetailPanel({required this.event, required this.dayName});
+
+  final DayProcessionEvent event;
+  final String dayName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent =
+        _parseColor(event.brotherhoodColorHex) ?? colorScheme.primary;
+    final firstPlanned = _firstPlannedAt(event);
+    final lastPlanned = _lastPlannedAt(event);
+
+    return Card(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    event.brotherhoodName,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              dayName,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _InfoCard(title: 'Estado', message: _statusLabel(event)),
+            const SizedBox(height: 12),
+            _InfoCard(
+              title: 'Identificador',
+              message: event.brotherhoodSlug.isEmpty
+                  ? 'Sin slug disponible'
+                  : event.brotherhoodSlug,
+            ),
+            const SizedBox(height: 12),
+            _InfoCard(
+              title: 'Color',
+              message: event.brotherhoodColorHex.isEmpty
+                  ? 'Sin color definido'
+                  : event.brotherhoodColorHex,
+            ),
+            const SizedBox(height: 12),
+            _InfoCard(
+              title: 'Horario estimado',
+              message: firstPlanned == null || lastPlanned == null
+                  ? 'Sin datos de horario planificado.'
+                  : '${_formatTimeLabel(firstPlanned)} - ${_formatTimeLabel(lastPlanned)}',
+            ),
+            const SizedBox(height: 12),
+            _InfoCard(
+              title: 'Nota oficial',
+              message: event.officialNote.isEmpty
+                  ? 'No hay nota oficial para esta hermandad en la jornada.'
+                  : event.officialNote,
+            ),
+            const SizedBox(height: 12),
+            const _InfoCard(
+              title: 'Detalle ampliado',
+              message:
+                  'Vista completa integrada en el panel derecho para tablet.',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1768,10 +1999,17 @@ class _InfoCard extends StatelessWidget {
 }
 
 class _ProcessionEventCard extends StatelessWidget {
-  const _ProcessionEventCard({required this.event, this.onTap});
+  const _ProcessionEventCard({
+    required this.event,
+    this.onTap,
+    this.isSelected = false,
+    this.showOfficialNote = true,
+  });
 
   final DayProcessionEvent event;
   final VoidCallback? onTap;
+  final bool isSelected;
+  final bool showOfficialNote;
 
   @override
   Widget build(BuildContext context) {
@@ -1780,46 +2018,47 @@ class _ProcessionEventCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final accent =
         _parseColor(event.brotherhoodColorHex) ?? colorScheme.primary;
+    final selectedBackground = accent.withValues(alpha: isDark ? 0.18 : 0.12);
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: isDark ? colorScheme.surface : AppColors.lightCard,
-        borderRadius: BorderRadius.circular(14),
+        color: isSelected
+            ? selectedBackground
+            : (isDark ? colorScheme.surface : AppColors.lightCard),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark
+          color: isSelected
+              ? accent.withValues(alpha: 0.36)
+              : isDark
               ? colorScheme.outlineVariant.withValues(alpha: 0.22)
               : AppColors.accentRose.withValues(alpha: 0.08),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.0 : 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 10,
-                  height: 48,
+                  width: 6,
+                  height: 34,
                   decoration: BoxDecoration(
                     color: accent,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         event.brotherhoodName,
@@ -1833,12 +2072,19 @@ class _ProcessionEventCard extends StatelessWidget {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      if (event.officialNote.isNotEmpty) ...[
-                        const SizedBox(height: 8),
+                      if (showOfficialNote &&
+                          event.officialNote.isNotEmpty) ...[
+                        const SizedBox(height: 6),
                         Text(
                           event.officialNote,
-                          style: theme.textTheme.bodySmall,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ],
@@ -1927,6 +2173,30 @@ String _statusLabel(DayProcessionEvent event) {
     return '${event.status} · $pass min';
   }
   return event.status;
+}
+
+DateTime? _firstPlannedAt(DayProcessionEvent event) {
+  final points =
+      event.schedulePoints
+          .where((point) => point.plannedAt != null)
+          .toList(growable: false)
+        ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
+  if (points.isEmpty) {
+    return null;
+  }
+  return points.first.plannedAt;
+}
+
+DateTime? _lastPlannedAt(DayProcessionEvent event) {
+  final points =
+      event.schedulePoints
+          .where((point) => point.plannedAt != null)
+          .toList(growable: false)
+        ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
+  if (points.isEmpty) {
+    return null;
+  }
+  return points.last.plannedAt;
 }
 
 List<_ScheduledEventEntry> _buildScheduleEntries(
@@ -2057,22 +2327,21 @@ List<_ScheduledEventEntry> _entriesForMoment(
     visible.add(chosen);
   }
 
-  visible.sort(
-    (a, b) {
-      final statusPriority = _scheduleCardStatusPriority(a.event.status)
-          .compareTo(_scheduleCardStatusPriority(b.event.status));
-      if (statusPriority != 0) {
-        return statusPriority;
-      }
-      final campanaCompare = _campanaSortTime(
-        grouped[a.event.brotherhoodSlug]!,
-      ).compareTo(_campanaSortTime(grouped[b.event.brotherhoodSlug]!));
-      if (campanaCompare != 0) {
-        return campanaCompare;
-      }
-      return a.event.brotherhoodName.compareTo(b.event.brotherhoodName);
-    },
-  );
+  visible.sort((a, b) {
+    final statusPriority = _scheduleCardStatusPriority(
+      a.event.status,
+    ).compareTo(_scheduleCardStatusPriority(b.event.status));
+    if (statusPriority != 0) {
+      return statusPriority;
+    }
+    final campanaCompare = _campanaSortTime(
+      grouped[a.event.brotherhoodSlug]!,
+    ).compareTo(_campanaSortTime(grouped[b.event.brotherhoodSlug]!));
+    if (campanaCompare != 0) {
+      return campanaCompare;
+    }
+    return a.event.brotherhoodName.compareTo(b.event.brotherhoodName);
+  });
   return visible;
 }
 
