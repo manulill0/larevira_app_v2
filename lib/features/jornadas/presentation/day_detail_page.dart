@@ -13,6 +13,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/time/test_clock_controller.dart';
 import '../../../core/widgets/adaptive_app_bar_title.dart';
 import '../application/day_detail_controller.dart';
+import '../application/edition_official_route_provider.dart';
 import 'schedule_point_map_page.dart';
 
 class DayDetailPage extends ConsumerStatefulWidget {
@@ -41,6 +42,7 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage> {
     final isDark = theme.brightness == Brightness.dark;
     final effectiveSlug = widget.item?.slug ?? widget.slug;
     final detailAsync = ref.watch(dayDetailProvider(effectiveSlug));
+    final editionOfficialRoute = ref.watch(editionOfficialRouteProvider).asData?.value;
     final testClock = ref.watch(testClockProvider);
     final detail = detailAsync.asData?.value;
     final pageTitle = widget.item?.name ?? detail?.name ?? 'Jornada';
@@ -179,7 +181,10 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage> {
                             },
                             child: _SectionContent(
                               currentSection: _currentSection,
-                              detail: detail,
+                              detail: _applyEditionOfficialRoute(
+                                detail,
+                                editionOfficialRoute,
+                              ),
                               scheduleEntries: scheduleEntries,
                               scheduleViewMode: _scheduleViewMode,
                               selectedScheduleTime:
@@ -718,7 +723,7 @@ class _MapSectionState extends State<_MapSection> {
   CircleAnnotationManager? _markerManager;
   int _syncGeneration = 0;
   bool _showLegend = false;
-  static const Color _officialCourseFallbackColor = Color(0xFF2E7D32);
+  static const Color _officialCourseFallbackColor = Color(0xFFFFA500);
 
   List<MapPoint> _routeMapPoints(DayProcessionEvent event) {
     return event.routePoints
@@ -2227,6 +2232,20 @@ DateTime _scheduleMinTime(List<_ScheduledEventEntry> entries) {
 
 DateTime _scheduleMaxTime(List<_ScheduledEventEntry> entries) {
   return entries.last.scheduledAt.add(const Duration(hours: 2));
+}
+
+DayDetail _applyEditionOfficialRoute(
+  DayDetail detail,
+  EditionOfficialRoute? editionOfficialRoute,
+) {
+  if (editionOfficialRoute == null || !editionOfficialRoute.hasGeometry) {
+    return detail;
+  }
+
+  return detail.copyWith(
+    officialRouteArgb: editionOfficialRoute.argb ?? detail.officialRouteArgb,
+    officialRoutePoints: editionOfficialRoute.points,
+  );
 }
 
 Color? _parseColor(String raw) {
