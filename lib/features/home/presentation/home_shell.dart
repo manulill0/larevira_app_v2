@@ -21,7 +21,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  static const _tabletBreakpoint = 840.0;
+  static const _tabletShortestSide = 600.0;
   static const _screenNames = <String>['today', 'days', 'planning', 'more'];
 
   @override
@@ -58,7 +58,8 @@ class _HomeShellState extends State<HomeShell> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useTabletLayout = constraints.maxWidth >= _tabletBreakpoint;
+        final useTabletLayout =
+            MediaQuery.sizeOf(context).shortestSide >= _tabletShortestSide;
 
         return Scaffold(
           body: DecoratedBox(

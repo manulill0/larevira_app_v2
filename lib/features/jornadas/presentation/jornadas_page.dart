@@ -18,7 +18,7 @@ class JornadasPage extends ConsumerStatefulWidget {
 
 class _JornadasPageState extends ConsumerState<JornadasPage>
     with SliverScrollStateMixin<JornadasPage> {
-  static const _tabletBreakpoint = 840.0;
+  static const _tabletShortestSide = 600.0;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +58,8 @@ class _JornadasPageState extends ConsumerState<JornadasPage>
                       return LayoutBuilder(
                         builder: (context, constraints) {
                           final isTablet =
-                              constraints.maxWidth >= _tabletBreakpoint;
+                              MediaQuery.sizeOf(context).shortestSide >=
+                              _tabletShortestSide;
 
                           if (!isTablet) {
                             return Column(

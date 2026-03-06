@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
+import '../../../core/config/app_instance_controller.dart';
 import '../../../core/config/debug_flags.dart';
 import '../../../core/maps/mapbox_map_helpers.dart';
 import '../../../core/models/day_detail.dart';
@@ -30,15 +31,17 @@ class DayDetailPage extends ConsumerStatefulWidget {
 
 class _DayDetailPageState extends ConsumerState<DayDetailPage>
     with SliverScrollStateMixin<DayDetailPage> {
-  static const _tabletBreakpoint = 840.0;
+  static const _tabletShortestSide = 600.0;
   int _currentSection = 0;
   _ScheduleViewMode _scheduleViewMode = _ScheduleViewMode.cards;
   DateTime? _selectedScheduleTime;
+  String? _selectedBrotherhoodSlug;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brightness = theme.brightness;
+    final appInstance = ref.watch(appInstanceProvider);
     final effectiveSlug = widget.item?.slug ?? widget.slug;
     final detailAsync = ref.watch(dayDetailProvider(effectiveSlug));
     final editionOfficialRoute = ref
@@ -49,7 +52,8 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage>
     final detail = detailAsync.asData?.value;
     final pageTitle = widget.item?.name ?? detail?.name ?? 'Jornada';
     final appBarBackground = AppPageSurfaces.sliverAppBarBackground(brightness);
-    final isTablet = MediaQuery.sizeOf(context).width >= _tabletBreakpoint;
+    final isTablet =
+        MediaQuery.sizeOf(context).shortestSide >= _tabletShortestSide;
     final scheduleEntries = detail == null
         ? const <_ScheduledEventEntry>[]
         : _buildScheduleEntries(
@@ -119,6 +123,8 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage>
                               detail,
                               editionOfficialRoute,
                             ),
+                            baseApiUrl: appInstance.baseApiUrl,
+                            selectedBrotherhoodSlug: _selectedBrotherhoodSlug,
                             scheduleEntries: scheduleEntries,
                             scheduleViewMode: _scheduleViewMode,
                             selectedScheduleTime: effectiveSelectedScheduleTime,
@@ -135,6 +141,11 @@ class _DayDetailPageState extends ConsumerState<DayDetailPage>
                             onSectionRequested: (index) {
                               setState(() {
                                 _currentSection = index;
+                              });
+                            },
+                            onBrotherhoodSelected: (slug) {
+                              setState(() {
+                                _selectedBrotherhoodSlug = slug;
                               });
                             },
                             onScheduleViewModeChanged: (value) {
@@ -287,23 +298,29 @@ class _SectionContent extends StatelessWidget {
   const _SectionContent({
     required this.currentSection,
     required this.detail,
+    required this.baseApiUrl,
+    required this.selectedBrotherhoodSlug,
     required this.scheduleEntries,
     required this.scheduleViewMode,
     required this.selectedScheduleTime,
     required this.useBottomNavigation,
     required this.onSelectedScheduleTimeChanged,
     required this.onSectionRequested,
+    required this.onBrotherhoodSelected,
     required this.onScheduleViewModeChanged,
   });
 
   final int currentSection;
   final DayDetail detail;
+  final String baseApiUrl;
+  final String? selectedBrotherhoodSlug;
   final List<_ScheduledEventEntry> scheduleEntries;
   final _ScheduleViewMode scheduleViewMode;
   final DateTime? selectedScheduleTime;
   final bool useBottomNavigation;
   final ValueChanged<DateTime> onSelectedScheduleTimeChanged;
   final ValueChanged<int> onSectionRequested;
+  final ValueChanged<String> onBrotherhoodSelected;
   final ValueChanged<_ScheduleViewMode> onScheduleViewModeChanged;
 
   @override
@@ -327,14 +344,20 @@ class _SectionContent extends StatelessWidget {
       case 2:
         return _BrotherhoodsSection(
           detail: detail,
+          baseApiUrl: baseApiUrl,
+          selectedBrotherhoodSlug: selectedBrotherhoodSlug,
           onSectionRequested: onSectionRequested,
+          onBrotherhoodSelected: onBrotherhoodSelected,
         );
       case 3:
         return _PlanSection(detail: detail);
       default:
         return _BrotherhoodsSection(
           detail: detail,
+          baseApiUrl: baseApiUrl,
+          selectedBrotherhoodSlug: selectedBrotherhoodSlug,
           onSectionRequested: onSectionRequested,
+          onBrotherhoodSelected: onBrotherhoodSelected,
         );
     }
   }
@@ -1409,33 +1432,24 @@ class _TimedRoutePoint {
   final double routeIndex;
 }
 
-class _BrotherhoodsSection extends StatefulWidget {
+class _BrotherhoodsSection extends StatelessWidget {
   const _BrotherhoodsSection({
     required this.detail,
+    required this.baseApiUrl,
+    required this.selectedBrotherhoodSlug,
     required this.onSectionRequested,
+    required this.onBrotherhoodSelected,
   });
 
   final DayDetail detail;
+  final String baseApiUrl;
+  final String? selectedBrotherhoodSlug;
   final ValueChanged<int> onSectionRequested;
-
-  @override
-  State<_BrotherhoodsSection> createState() => _BrotherhoodsSectionState();
-}
-
-class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
-  String? _selectedBrotherhoodSlug;
-
-  @override
-  void didUpdateWidget(covariant _BrotherhoodsSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.detail != widget.detail) {
-      _selectedBrotherhoodSlug = null;
-    }
-  }
+  final ValueChanged<String> onBrotherhoodSelected;
 
   @override
   Widget build(BuildContext context) {
-    final detail = widget.detail;
+    final detail = this.detail;
     if (detail.processionEvents.isEmpty) {
       return const _InfoCard(
         title: 'Sin hermandades',
@@ -1443,7 +1457,7 @@ class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
       );
     }
 
-    final isTablet = MediaQuery.sizeOf(context).width >= 840;
+    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
     if (!isTablet) {
       return Column(
         children: [
@@ -1451,10 +1465,21 @@ class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
             _ProcessionEventCard(
               event: event,
               onTap: () async {
-                final selectedSection = await context
-                    .pushBrotherhoodDetail<int>(event, dayName: detail.name);
-                if (selectedSection != null) {
-                  widget.onSectionRequested(selectedSection);
+                onBrotherhoodSelected(event.brotherhoodSlug);
+                final result = await context.pushBrotherhoodDetail<Object?>(
+                  event,
+                  dayName: detail.name,
+                );
+                if (result == null) {
+                  return;
+                }
+                if (result is BrotherhoodDetailReturnData) {
+                  onBrotherhoodSelected(result.brotherhoodSlug);
+                  onSectionRequested(result.sectionIndex);
+                  return;
+                }
+                if (result is int) {
+                  onSectionRequested(result);
                 }
               },
             ),
@@ -1465,7 +1490,7 @@ class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
     }
 
     final selectedSlug =
-        _selectedBrotherhoodSlug ??
+        selectedBrotherhoodSlug ??
         detail.processionEvents.first.brotherhoodSlug;
     final selectedEvent = detail.processionEvents.firstWhere(
       (event) => event.brotherhoodSlug == selectedSlug,
@@ -1473,11 +1498,15 @@ class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
     );
     final media = MediaQuery.sizeOf(context);
     final insets = MediaQuery.paddingOf(context);
+    final isLandscape = media.width > media.height;
+    final bottomAllowance = isLandscape ? 56.0 : 24.0;
     final panelHeight =
-        (media.height - insets.top - insets.bottom - kToolbarHeight - 24).clamp(
-          440.0,
-          media.height,
-        );
+        (media.height -
+                insets.top -
+                insets.bottom -
+                kToolbarHeight -
+                bottomAllowance)
+            .clamp(320.0, media.height);
 
     return SizedBox(
       height: panelHeight,
@@ -1502,9 +1531,7 @@ class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
                         event.brotherhoodSlug == selectedEvent.brotherhoodSlug,
                     showOfficialNote: false,
                     onTap: () {
-                      setState(() {
-                        _selectedBrotherhoodSlug = event.brotherhoodSlug;
-                      });
+                      onBrotherhoodSelected(event.brotherhoodSlug);
                     },
                   );
                 },
@@ -1517,6 +1544,7 @@ class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
             child: _BrotherhoodDetailPanel(
               event: selectedEvent,
               dayName: detail.name,
+              baseApiUrl: baseApiUrl,
             ),
           ),
         ],
@@ -1526,10 +1554,15 @@ class _BrotherhoodsSectionState extends State<_BrotherhoodsSection> {
 }
 
 class _BrotherhoodDetailPanel extends StatelessWidget {
-  const _BrotherhoodDetailPanel({required this.event, required this.dayName});
+  const _BrotherhoodDetailPanel({
+    required this.event,
+    required this.dayName,
+    required this.baseApiUrl,
+  });
 
   final DayProcessionEvent event;
   final String dayName;
+  final String baseApiUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -1537,85 +1570,392 @@ class _BrotherhoodDetailPanel extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final accent =
         _parseColor(event.brotherhoodColorHex) ?? colorScheme.primary;
-    final firstPlanned = _firstPlannedAt(event);
-    final lastPlanned = _lastPlannedAt(event);
+    final headerLabel = (event.brotherhoodShortName?.trim().isNotEmpty ?? false)
+        ? event.brotherhoodShortName!.trim()
+        : event.brotherhoodName;
+    final headerImageUrl = _resolvePanelImageUrl(
+      event.brotherhoodHeaderImageUrl,
+      baseApiUrl,
+    );
+    final shieldImageUrl = _resolvePanelImageUrl(
+      event.brotherhoodShieldImageUrl,
+      baseApiUrl,
+    );
 
     return Card(
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      clipBehavior: Clip.antiAlias,
+      child: DefaultTabController(
+        length: 3,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: BorderRadius.circular(999),
+            SizedBox(
+              height: 170,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _BrotherhoodPanelHeaderBackground(
+                    imageUrl: headerImageUrl,
+                    accent: accent,
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    event.brotherhoodName,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.12),
+                          Colors.black.withValues(alpha: 0.58),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              dayName,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+                  Positioned(
+                    left: 14,
+                    right: 14,
+                    bottom: 12,
+                    child: Row(
+                      children: [
+                        _BrotherhoodPanelShieldAvatar(
+                          imageUrl: shieldImageUrl,
+                          accent: accent,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            headerLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            _InfoCard(title: 'Estado', message: _statusLabel(event)),
-            const SizedBox(height: 12),
-            _InfoCard(
-              title: 'Identificador',
-              message: event.brotherhoodSlug.isEmpty
-                  ? 'Sin slug disponible'
-                  : event.brotherhoodSlug,
+            Material(
+              color: colorScheme.surface,
+              child: const TabBar(
+                tabs: [
+                  Tab(text: 'Información'),
+                  Tab(text: 'Itinerario'),
+                  Tab(text: 'Mapa'),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            _InfoCard(
-              title: 'Color',
-              message: event.brotherhoodColorHex.isEmpty
-                  ? 'Sin color definido'
-                  : event.brotherhoodColorHex,
-            ),
-            const SizedBox(height: 12),
-            _InfoCard(
-              title: 'Horario estimado',
-              message: firstPlanned == null || lastPlanned == null
-                  ? 'Sin datos de horario planificado.'
-                  : '${_formatTimeLabel(firstPlanned)} - ${_formatTimeLabel(lastPlanned)}',
-            ),
-            const SizedBox(height: 12),
-            _InfoCard(
-              title: 'Nota oficial',
-              message: event.officialNote.isEmpty
-                  ? 'No hay nota oficial para esta hermandad en la jornada.'
-                  : event.officialNote,
-            ),
-            const SizedBox(height: 12),
-            const _InfoCard(
-              title: 'Detalle ampliado',
-              message:
-                  'Vista completa integrada en el panel derecho para tablet.',
+            Expanded(
+              child: TabBarView(
+                children: [
+                  ListView(
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: Text(
+                          event.brotherhoodName,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _BrotherhoodPanelStatCard(
+                              label: 'Duración',
+                              value: event.passDurationMinutes == null
+                                  ? '--'
+                                  : '${event.passDurationMinutes} min',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _BrotherhoodPanelStatCard(
+                              label: 'Hermanos',
+                              value: event.brothersCount == null
+                                  ? '--'
+                                  : '${event.brothersCount}',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _BrotherhoodPanelStatCard(
+                              label: 'Nazarenos',
+                              value: event.nazarenesCount == null
+                                  ? '--'
+                                  : '${event.nazarenesCount}',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _InfoCard(title: 'Estado', message: _statusLabel(event)),
+                      const SizedBox(height: 12),
+                      _InfoCard(
+                        title: 'Identificador',
+                        message: event.brotherhoodSlug.isEmpty
+                            ? 'Sin slug disponible'
+                            : event.brotherhoodSlug,
+                      ),
+                      const SizedBox(height: 12),
+                      _InfoCard(
+                        title: 'Color',
+                        message: event.brotherhoodColorHex.isEmpty
+                            ? 'Sin color definido'
+                            : event.brotherhoodColorHex.toUpperCase(),
+                      ),
+                      const SizedBox(height: 12),
+                      _InfoCard(title: 'Jornada', message: dayName),
+                      const SizedBox(height: 12),
+                      _InfoCard(
+                        title: 'Nota oficial',
+                        message: event.officialNote.isEmpty
+                            ? 'No hay nota oficial para esta hermandad en la jornada.'
+                            : event.officialNote,
+                      ),
+                    ],
+                  ),
+                  _BrotherhoodPanelItineraryTab(event: event),
+                  _BrotherhoodPanelMapTab(event: event),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _BrotherhoodPanelHeaderBackground extends StatelessWidget {
+  const _BrotherhoodPanelHeaderBackground({
+    required this.imageUrl,
+    required this.accent,
+  });
+
+  final String? imageUrl;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+    if (hasImage) {
+      return Image.network(
+        imageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  accent.withValues(alpha: 0.8),
+                  accent.withValues(alpha: 0.35),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            accent.withValues(alpha: 0.8),
+            accent.withValues(alpha: 0.35),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+    );
+  }
+}
+
+class _BrotherhoodPanelItineraryTab extends StatelessWidget {
+  const _BrotherhoodPanelItineraryTab({required this.event});
+
+  final DayProcessionEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final points = event.schedulePoints;
+    if (points.isEmpty) {
+      return ListView(
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: const [
+          _InfoCard(
+            title: 'Itinerario no disponible',
+            message: 'No hay puntos de itinerario en esta jornada.',
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      itemCount: points.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final point = points[index];
+        return _InfoCard(
+          title: '${index + 1}. ${point.name}',
+          message: point.plannedAt == null
+              ? 'Hora no disponible'
+              : 'Hora prevista: ${_formatTimeLabel(point.plannedAt!)}',
+        );
+      },
+    );
+  }
+}
+
+class _BrotherhoodPanelShieldAvatar extends StatelessWidget {
+  const _BrotherhoodPanelShieldAvatar({
+    required this.imageUrl,
+    required this.accent,
+  });
+
+  final String? imageUrl;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.75),
+          width: 1.2,
+        ),
+        color: accent.withValues(alpha: 0.25),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasImage
+          ? Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => const Icon(
+                Icons.shield_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            )
+          : const Icon(Icons.shield_rounded, color: Colors.white, size: 18),
+    );
+  }
+}
+
+class _BrotherhoodPanelMapTab extends StatelessWidget {
+  const _BrotherhoodPanelMapTab({required this.event});
+
+  final DayProcessionEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: const [
+        _InfoCard(
+          title: 'Mapa',
+          message: 'Vista de mapa específica de hermandad en preparación.',
+        ),
+      ],
+    );
+  }
+}
+
+class _BrotherhoodPanelStatCard extends StatelessWidget {
+  const _BrotherhoodPanelStatCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String? _resolvePanelImageUrl(String? raw, String baseApiUrl) {
+  if (raw == null || raw.trim().isEmpty) {
+    return null;
+  }
+  final value = raw.trim();
+  final uri = Uri.tryParse(value);
+  if (uri != null && uri.hasScheme) {
+    return value;
+  }
+
+  final base = Uri.tryParse(baseApiUrl);
+  if (base == null) {
+    return value;
+  }
+
+  final origin = Uri(
+    scheme: base.scheme,
+    host: base.host,
+    port: base.hasPort ? base.port : null,
+  );
+  return origin.resolve(value).toString();
 }
 
 class _PlanSection extends StatelessWidget {
@@ -2173,30 +2513,6 @@ String _statusLabel(DayProcessionEvent event) {
     return '${event.status} · $pass min';
   }
   return event.status;
-}
-
-DateTime? _firstPlannedAt(DayProcessionEvent event) {
-  final points =
-      event.schedulePoints
-          .where((point) => point.plannedAt != null)
-          .toList(growable: false)
-        ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
-  if (points.isEmpty) {
-    return null;
-  }
-  return points.first.plannedAt;
-}
-
-DateTime? _lastPlannedAt(DayProcessionEvent event) {
-  final points =
-      event.schedulePoints
-          .where((point) => point.plannedAt != null)
-          .toList(growable: false)
-        ..sort((a, b) => a.plannedAt!.compareTo(b.plannedAt!));
-  if (points.isEmpty) {
-    return null;
-  }
-  return points.last.plannedAt;
 }
 
 List<_ScheduledEventEntry> _buildScheduleEntries(

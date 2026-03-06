@@ -1251,6 +1251,28 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _brothersCountMeta = const VerificationMeta(
+    'brothersCount',
+  );
+  @override
+  late final GeneratedColumn<int> brothersCount = GeneratedColumn<int>(
+    'brothers_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nazarenesCountMeta = const VerificationMeta(
+    'nazarenesCount',
+  );
+  @override
+  late final GeneratedColumn<int> nazarenesCount = GeneratedColumn<int>(
+    'nazarenes_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _brotherhoodNameMeta = const VerificationMeta(
     'brotherhoodName',
   );
@@ -1305,6 +1327,8 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
     status,
     officialNote,
     passDurationMinutes,
+    brothersCount,
+    nazarenesCount,
     brotherhoodName,
     brotherhoodSlug,
     brotherhoodColorHex,
@@ -1387,6 +1411,24 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
         passDurationMinutes.isAcceptableOrUnknown(
           data['pass_duration_minutes']!,
           _passDurationMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('brothers_count')) {
+      context.handle(
+        _brothersCountMeta,
+        brothersCount.isAcceptableOrUnknown(
+          data['brothers_count']!,
+          _brothersCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('nazarenes_count')) {
+      context.handle(
+        _nazarenesCountMeta,
+        nazarenesCount.isAcceptableOrUnknown(
+          data['nazarenes_count']!,
+          _nazarenesCountMeta,
         ),
       );
     }
@@ -1479,6 +1521,14 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
         DriftSqlType.int,
         data['${effectivePrefix}pass_duration_minutes'],
       ),
+      brothersCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}brothers_count'],
+      ),
+      nazarenesCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}nazarenes_count'],
+      ),
       brotherhoodName: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}brotherhood_name'],
@@ -1514,6 +1564,8 @@ class DayProcessionEventEntry extends DataClass
   final String status;
   final String officialNote;
   final int? passDurationMinutes;
+  final int? brothersCount;
+  final int? nazarenesCount;
   final String brotherhoodName;
   final String brotherhoodSlug;
   final String brotherhoodColorHex;
@@ -1527,6 +1579,8 @@ class DayProcessionEventEntry extends DataClass
     required this.status,
     required this.officialNote,
     this.passDurationMinutes,
+    this.brothersCount,
+    this.nazarenesCount,
     required this.brotherhoodName,
     required this.brotherhoodSlug,
     required this.brotherhoodColorHex,
@@ -1544,6 +1598,12 @@ class DayProcessionEventEntry extends DataClass
     map['official_note'] = Variable<String>(officialNote);
     if (!nullToAbsent || passDurationMinutes != null) {
       map['pass_duration_minutes'] = Variable<int>(passDurationMinutes);
+    }
+    if (!nullToAbsent || brothersCount != null) {
+      map['brothers_count'] = Variable<int>(brothersCount);
+    }
+    if (!nullToAbsent || nazarenesCount != null) {
+      map['nazarenes_count'] = Variable<int>(nazarenesCount);
     }
     map['brotherhood_name'] = Variable<String>(brotherhoodName);
     map['brotherhood_slug'] = Variable<String>(brotherhoodSlug);
@@ -1566,6 +1626,12 @@ class DayProcessionEventEntry extends DataClass
       passDurationMinutes: passDurationMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(passDurationMinutes),
+      brothersCount: brothersCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brothersCount),
+      nazarenesCount: nazarenesCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nazarenesCount),
       brotherhoodName: Value(brotherhoodName),
       brotherhoodSlug: Value(brotherhoodSlug),
       brotherhoodColorHex: Value(brotherhoodColorHex),
@@ -1591,6 +1657,8 @@ class DayProcessionEventEntry extends DataClass
       passDurationMinutes: serializer.fromJson<int?>(
         json['passDurationMinutes'],
       ),
+      brothersCount: serializer.fromJson<int?>(json['brothersCount']),
+      nazarenesCount: serializer.fromJson<int?>(json['nazarenesCount']),
       brotherhoodName: serializer.fromJson<String>(json['brotherhoodName']),
       brotherhoodSlug: serializer.fromJson<String>(json['brotherhoodSlug']),
       brotherhoodColorHex: serializer.fromJson<String>(
@@ -1611,6 +1679,8 @@ class DayProcessionEventEntry extends DataClass
       'status': serializer.toJson<String>(status),
       'officialNote': serializer.toJson<String>(officialNote),
       'passDurationMinutes': serializer.toJson<int?>(passDurationMinutes),
+      'brothersCount': serializer.toJson<int?>(brothersCount),
+      'nazarenesCount': serializer.toJson<int?>(nazarenesCount),
       'brotherhoodName': serializer.toJson<String>(brotherhoodName),
       'brotherhoodSlug': serializer.toJson<String>(brotherhoodSlug),
       'brotherhoodColorHex': serializer.toJson<String>(brotherhoodColorHex),
@@ -1627,6 +1697,8 @@ class DayProcessionEventEntry extends DataClass
     String? status,
     String? officialNote,
     Value<int?> passDurationMinutes = const Value.absent(),
+    Value<int?> brothersCount = const Value.absent(),
+    Value<int?> nazarenesCount = const Value.absent(),
     String? brotherhoodName,
     String? brotherhoodSlug,
     String? brotherhoodColorHex,
@@ -1642,6 +1714,12 @@ class DayProcessionEventEntry extends DataClass
     passDurationMinutes: passDurationMinutes.present
         ? passDurationMinutes.value
         : this.passDurationMinutes,
+    brothersCount: brothersCount.present
+        ? brothersCount.value
+        : this.brothersCount,
+    nazarenesCount: nazarenesCount.present
+        ? nazarenesCount.value
+        : this.nazarenesCount,
     brotherhoodName: brotherhoodName ?? this.brotherhoodName,
     brotherhoodSlug: brotherhoodSlug ?? this.brotherhoodSlug,
     brotherhoodColorHex: brotherhoodColorHex ?? this.brotherhoodColorHex,
@@ -1663,6 +1741,12 @@ class DayProcessionEventEntry extends DataClass
       passDurationMinutes: data.passDurationMinutes.present
           ? data.passDurationMinutes.value
           : this.passDurationMinutes,
+      brothersCount: data.brothersCount.present
+          ? data.brothersCount.value
+          : this.brothersCount,
+      nazarenesCount: data.nazarenesCount.present
+          ? data.nazarenesCount.value
+          : this.nazarenesCount,
       brotherhoodName: data.brotherhoodName.present
           ? data.brotherhoodName.value
           : this.brotherhoodName,
@@ -1687,6 +1771,8 @@ class DayProcessionEventEntry extends DataClass
           ..write('status: $status, ')
           ..write('officialNote: $officialNote, ')
           ..write('passDurationMinutes: $passDurationMinutes, ')
+          ..write('brothersCount: $brothersCount, ')
+          ..write('nazarenesCount: $nazarenesCount, ')
           ..write('brotherhoodName: $brotherhoodName, ')
           ..write('brotherhoodSlug: $brotherhoodSlug, ')
           ..write('brotherhoodColorHex: $brotherhoodColorHex, ')
@@ -1705,6 +1791,8 @@ class DayProcessionEventEntry extends DataClass
     status,
     officialNote,
     passDurationMinutes,
+    brothersCount,
+    nazarenesCount,
     brotherhoodName,
     brotherhoodSlug,
     brotherhoodColorHex,
@@ -1722,6 +1810,8 @@ class DayProcessionEventEntry extends DataClass
           other.status == this.status &&
           other.officialNote == this.officialNote &&
           other.passDurationMinutes == this.passDurationMinutes &&
+          other.brothersCount == this.brothersCount &&
+          other.nazarenesCount == this.nazarenesCount &&
           other.brotherhoodName == this.brotherhoodName &&
           other.brotherhoodSlug == this.brotherhoodSlug &&
           other.brotherhoodColorHex == this.brotherhoodColorHex &&
@@ -1738,6 +1828,8 @@ class DayProcessionEventEntriesCompanion
   final Value<String> status;
   final Value<String> officialNote;
   final Value<int?> passDurationMinutes;
+  final Value<int?> brothersCount;
+  final Value<int?> nazarenesCount;
   final Value<String> brotherhoodName;
   final Value<String> brotherhoodSlug;
   final Value<String> brotherhoodColorHex;
@@ -1752,6 +1844,8 @@ class DayProcessionEventEntriesCompanion
     this.status = const Value.absent(),
     this.officialNote = const Value.absent(),
     this.passDurationMinutes = const Value.absent(),
+    this.brothersCount = const Value.absent(),
+    this.nazarenesCount = const Value.absent(),
     this.brotherhoodName = const Value.absent(),
     this.brotherhoodSlug = const Value.absent(),
     this.brotherhoodColorHex = const Value.absent(),
@@ -1767,6 +1861,8 @@ class DayProcessionEventEntriesCompanion
     required String status,
     required String officialNote,
     this.passDurationMinutes = const Value.absent(),
+    this.brothersCount = const Value.absent(),
+    this.nazarenesCount = const Value.absent(),
     required String brotherhoodName,
     required String brotherhoodSlug,
     required String brotherhoodColorHex,
@@ -1791,6 +1887,8 @@ class DayProcessionEventEntriesCompanion
     Expression<String>? status,
     Expression<String>? officialNote,
     Expression<int>? passDurationMinutes,
+    Expression<int>? brothersCount,
+    Expression<int>? nazarenesCount,
     Expression<String>? brotherhoodName,
     Expression<String>? brotherhoodSlug,
     Expression<String>? brotherhoodColorHex,
@@ -1807,6 +1905,8 @@ class DayProcessionEventEntriesCompanion
       if (officialNote != null) 'official_note': officialNote,
       if (passDurationMinutes != null)
         'pass_duration_minutes': passDurationMinutes,
+      if (brothersCount != null) 'brothers_count': brothersCount,
+      if (nazarenesCount != null) 'nazarenes_count': nazarenesCount,
       if (brotherhoodName != null) 'brotherhood_name': brotherhoodName,
       if (brotherhoodSlug != null) 'brotherhood_slug': brotherhoodSlug,
       if (brotherhoodColorHex != null)
@@ -1825,6 +1925,8 @@ class DayProcessionEventEntriesCompanion
     Value<String>? status,
     Value<String>? officialNote,
     Value<int?>? passDurationMinutes,
+    Value<int?>? brothersCount,
+    Value<int?>? nazarenesCount,
     Value<String>? brotherhoodName,
     Value<String>? brotherhoodSlug,
     Value<String>? brotherhoodColorHex,
@@ -1840,6 +1942,8 @@ class DayProcessionEventEntriesCompanion
       status: status ?? this.status,
       officialNote: officialNote ?? this.officialNote,
       passDurationMinutes: passDurationMinutes ?? this.passDurationMinutes,
+      brothersCount: brothersCount ?? this.brothersCount,
+      nazarenesCount: nazarenesCount ?? this.nazarenesCount,
       brotherhoodName: brotherhoodName ?? this.brotherhoodName,
       brotherhoodSlug: brotherhoodSlug ?? this.brotherhoodSlug,
       brotherhoodColorHex: brotherhoodColorHex ?? this.brotherhoodColorHex,
@@ -1875,6 +1979,12 @@ class DayProcessionEventEntriesCompanion
     if (passDurationMinutes.present) {
       map['pass_duration_minutes'] = Variable<int>(passDurationMinutes.value);
     }
+    if (brothersCount.present) {
+      map['brothers_count'] = Variable<int>(brothersCount.value);
+    }
+    if (nazarenesCount.present) {
+      map['nazarenes_count'] = Variable<int>(nazarenesCount.value);
+    }
     if (brotherhoodName.present) {
       map['brotherhood_name'] = Variable<String>(brotherhoodName.value);
     }
@@ -1906,6 +2016,8 @@ class DayProcessionEventEntriesCompanion
           ..write('status: $status, ')
           ..write('officialNote: $officialNote, ')
           ..write('passDurationMinutes: $passDurationMinutes, ')
+          ..write('brothersCount: $brothersCount, ')
+          ..write('nazarenesCount: $nazarenesCount, ')
           ..write('brotherhoodName: $brotherhoodName, ')
           ..write('brotherhoodSlug: $brotherhoodSlug, ')
           ..write('brotherhoodColorHex: $brotherhoodColorHex, ')
@@ -4784,6 +4896,8 @@ typedef $$DayProcessionEventEntriesTableCreateCompanionBuilder =
       required String status,
       required String officialNote,
       Value<int?> passDurationMinutes,
+      Value<int?> brothersCount,
+      Value<int?> nazarenesCount,
       required String brotherhoodName,
       required String brotherhoodSlug,
       required String brotherhoodColorHex,
@@ -4800,6 +4914,8 @@ typedef $$DayProcessionEventEntriesTableUpdateCompanionBuilder =
       Value<String> status,
       Value<String> officialNote,
       Value<int?> passDurationMinutes,
+      Value<int?> brothersCount,
+      Value<int?> nazarenesCount,
       Value<String> brotherhoodName,
       Value<String> brotherhoodSlug,
       Value<String> brotherhoodColorHex,
@@ -4853,6 +4969,16 @@ class $$DayProcessionEventEntriesTableFilterComposer
 
   ColumnFilters<int> get passDurationMinutes => $composableBuilder(
     column: $table.passDurationMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get brothersCount => $composableBuilder(
+    column: $table.brothersCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nazarenesCount => $composableBuilder(
+    column: $table.nazarenesCount,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4926,6 +5052,16 @@ class $$DayProcessionEventEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get brothersCount => $composableBuilder(
+    column: $table.brothersCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nazarenesCount => $composableBuilder(
+    column: $table.nazarenesCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get brotherhoodName => $composableBuilder(
     column: $table.brotherhoodName,
     builder: (column) => ColumnOrderings(column),
@@ -4981,6 +5117,16 @@ class $$DayProcessionEventEntriesTableAnnotationComposer
 
   GeneratedColumn<int> get passDurationMinutes => $composableBuilder(
     column: $table.passDurationMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get brothersCount => $composableBuilder(
+    column: $table.brothersCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nazarenesCount => $composableBuilder(
+    column: $table.nazarenesCount,
     builder: (column) => column,
   );
 
@@ -5057,6 +5203,8 @@ class $$DayProcessionEventEntriesTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<String> officialNote = const Value.absent(),
                 Value<int?> passDurationMinutes = const Value.absent(),
+                Value<int?> brothersCount = const Value.absent(),
+                Value<int?> nazarenesCount = const Value.absent(),
                 Value<String> brotherhoodName = const Value.absent(),
                 Value<String> brotherhoodSlug = const Value.absent(),
                 Value<String> brotherhoodColorHex = const Value.absent(),
@@ -5071,6 +5219,8 @@ class $$DayProcessionEventEntriesTableTableManager
                 status: status,
                 officialNote: officialNote,
                 passDurationMinutes: passDurationMinutes,
+                brothersCount: brothersCount,
+                nazarenesCount: nazarenesCount,
                 brotherhoodName: brotherhoodName,
                 brotherhoodSlug: brotherhoodSlug,
                 brotherhoodColorHex: brotherhoodColorHex,
@@ -5087,6 +5237,8 @@ class $$DayProcessionEventEntriesTableTableManager
                 required String status,
                 required String officialNote,
                 Value<int?> passDurationMinutes = const Value.absent(),
+                Value<int?> brothersCount = const Value.absent(),
+                Value<int?> nazarenesCount = const Value.absent(),
                 required String brotherhoodName,
                 required String brotherhoodSlug,
                 required String brotherhoodColorHex,
@@ -5101,6 +5253,8 @@ class $$DayProcessionEventEntriesTableTableManager
                 status: status,
                 officialNote: officialNote,
                 passDurationMinutes: passDurationMinutes,
+                brothersCount: brothersCount,
+                nazarenesCount: nazarenesCount,
                 brotherhoodName: brotherhoodName,
                 brotherhoodSlug: brotherhoodSlug,
                 brotherhoodColorHex: brotherhoodColorHex,

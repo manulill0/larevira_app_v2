@@ -61,9 +61,14 @@ class DayProcessionEvent {
     required this.status,
     required this.officialNote,
     required this.passDurationMinutes,
+    this.brothersCount,
+    this.nazarenesCount,
     required this.brotherhoodName,
     required this.brotherhoodSlug,
     required this.brotherhoodColorHex,
+    this.brotherhoodShortName,
+    this.brotherhoodHeaderImageUrl,
+    this.brotherhoodShieldImageUrl,
     required this.routeArgb,
     required this.schedulePoints,
     required this.routePoints,
@@ -72,9 +77,14 @@ class DayProcessionEvent {
   final String status;
   final String officialNote;
   final int? passDurationMinutes;
+  final int? brothersCount;
+  final int? nazarenesCount;
   final String brotherhoodName;
   final String brotherhoodSlug;
   final String brotherhoodColorHex;
+  final String? brotherhoodShortName;
+  final String? brotherhoodHeaderImageUrl;
+  final String? brotherhoodShieldImageUrl;
   final String? routeArgb;
   final List<SchedulePoint> schedulePoints;
   final List<RoutePoint> routePoints;
@@ -83,9 +93,14 @@ class DayProcessionEvent {
     String? status,
     String? officialNote,
     int? passDurationMinutes,
+    int? brothersCount,
+    int? nazarenesCount,
     String? brotherhoodName,
     String? brotherhoodSlug,
     String? brotherhoodColorHex,
+    String? brotherhoodShortName,
+    String? brotherhoodHeaderImageUrl,
+    String? brotherhoodShieldImageUrl,
     String? routeArgb,
     List<SchedulePoint>? schedulePoints,
     List<RoutePoint>? routePoints,
@@ -94,9 +109,16 @@ class DayProcessionEvent {
       status: status ?? this.status,
       officialNote: officialNote ?? this.officialNote,
       passDurationMinutes: passDurationMinutes ?? this.passDurationMinutes,
+      brothersCount: brothersCount ?? this.brothersCount,
+      nazarenesCount: nazarenesCount ?? this.nazarenesCount,
       brotherhoodName: brotherhoodName ?? this.brotherhoodName,
       brotherhoodSlug: brotherhoodSlug ?? this.brotherhoodSlug,
       brotherhoodColorHex: brotherhoodColorHex ?? this.brotherhoodColorHex,
+      brotherhoodShortName: brotherhoodShortName ?? this.brotherhoodShortName,
+      brotherhoodHeaderImageUrl:
+          brotherhoodHeaderImageUrl ?? this.brotherhoodHeaderImageUrl,
+      brotherhoodShieldImageUrl:
+          brotherhoodShieldImageUrl ?? this.brotherhoodShieldImageUrl,
       routeArgb: routeArgb ?? this.routeArgb,
       schedulePoints: schedulePoints ?? this.schedulePoints,
       routePoints: routePoints ?? this.routePoints,
@@ -121,9 +143,35 @@ class DayProcessionEvent {
       status: (json['status'] ?? 'scheduled') as String,
       officialNote: (json['official_note'] ?? '') as String,
       passDurationMinutes: (json['pass_duration_minutes'] as num?)?.toInt(),
+      brothersCount: (json['brothers_count'] as num?)?.toInt(),
+      nazarenesCount: (json['nazarenes_count'] as num?)?.toInt(),
       brotherhoodName: (brotherhood['name'] ?? 'Hermandad') as String,
       brotherhoodSlug: (brotherhood['slug'] ?? '') as String,
       brotherhoodColorHex: (brotherhood['color_hex'] ?? '#8B1E3F') as String,
+      brotherhoodShortName: _firstNonEmptyString(
+        brotherhood,
+        const ['short_name', 'shortName', 'display_name', 'displayName'],
+      ),
+      brotherhoodHeaderImageUrl: _firstNonEmptyString(
+        brotherhood,
+        const [
+          'header_image_url',
+          'header_image',
+          'cover_image_url',
+          'cover_url',
+          'image_url',
+        ],
+      ),
+      brotherhoodShieldImageUrl: _firstNonEmptyString(
+        brotherhood,
+        const [
+          'shield_url',
+          'emblem_url',
+          'coat_of_arms_url',
+          'logo_url',
+          'badge_url',
+        ],
+      ),
       routeArgb: _resolveItineraryArgb(itinerary, rawKml),
       schedulePoints: rawSchedulePoints
           .whereType<Map<String, dynamic>>()
@@ -134,6 +182,19 @@ class DayProcessionEvent {
           : _parseRoutePointsFromKml(rawKml),
     );
   }
+}
+
+String? _firstNonEmptyString(
+  Map<String, dynamic> source,
+  List<String> keys,
+) {
+  for (final key in keys) {
+    final value = source[key];
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+  }
+  return null;
 }
 
 class SchedulePoint {

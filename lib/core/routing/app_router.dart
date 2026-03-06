@@ -17,17 +17,30 @@ import 'app_routes.dart';
 
 String defaultHomeRedirect() => AppRoutes.defaultHome;
 
+String? _pendingPostStartupRoute;
+
 String? resolveAppRedirect({
   required SyncState syncState,
   required String path,
 }) {
   final isStartupRoute = path == AppRoutes.startup;
+  final isWatchEntryRoute = AppRoutes.isWatchEntryRoute(path);
 
   if (!syncState.isInitialSyncComplete && !isStartupRoute) {
+    if (isWatchEntryRoute) {
+      _pendingPostStartupRoute = path;
+    }
     return AppRoutes.startup;
   }
 
   if (syncState.isInitialSyncComplete && isStartupRoute) {
+    final pendingRoute = _pendingPostStartupRoute;
+    _pendingPostStartupRoute = null;
+
+    if (pendingRoute != null && pendingRoute != AppRoutes.startup) {
+      return pendingRoute;
+    }
+
     return AppRoutes.defaultHome;
   }
 

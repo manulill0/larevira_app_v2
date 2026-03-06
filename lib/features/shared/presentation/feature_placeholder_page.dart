@@ -26,7 +26,7 @@ class FeaturePlaceholderPage extends StatefulWidget {
 
 class _FeaturePlaceholderPageState extends State<FeaturePlaceholderPage>
     with SliverScrollStateMixin<FeaturePlaceholderPage> {
-  static const _tabletBreakpoint = 840.0;
+  static const _tabletShortestSide = 600.0;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,8 @@ class _FeaturePlaceholderPageState extends State<FeaturePlaceholderPage>
     final appBarBackground = AppPageSurfaces.sliverAppBarBackground(
       theme.brightness,
     );
-    final isTablet = MediaQuery.sizeOf(context).width >= _tabletBreakpoint;
+    final isTablet =
+        MediaQuery.sizeOf(context).shortestSide >= _tabletShortestSide;
 
     final heroCard = Container(
       padding: const EdgeInsets.all(20),

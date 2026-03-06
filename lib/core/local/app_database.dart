@@ -62,6 +62,8 @@ class DayProcessionEventEntries extends Table {
   TextColumn get status => text()();
   TextColumn get officialNote => text()();
   IntColumn get passDurationMinutes => integer().nullable()();
+  IntColumn get brothersCount => integer().nullable()();
+  IntColumn get nazarenesCount => integer().nullable()();
   TextColumn get brotherhoodName => text()();
   TextColumn get brotherhoodSlug => text()();
   TextColumn get brotherhoodColorHex => text()();
@@ -175,7 +177,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -206,6 +208,16 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(
           dayProcessionEventEntries,
           dayProcessionEventEntries.routeArgb,
+        );
+      }
+      if (from < 9) {
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.brothersCount,
+        );
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.nazarenesCount,
         );
       }
     },
@@ -376,6 +388,8 @@ class AppDatabase extends _$AppDatabase {
                   status: entry.value.status,
                   officialNote: entry.value.officialNote,
                   passDurationMinutes: Value(entry.value.passDurationMinutes),
+                  brothersCount: Value(entry.value.brothersCount),
+                  nazarenesCount: Value(entry.value.nazarenesCount),
                   brotherhoodName: entry.value.brotherhoodName,
                   brotherhoodSlug: entry.value.brotherhoodSlug,
                   brotherhoodColorHex: entry.value.brotherhoodColorHex,
@@ -638,6 +652,8 @@ class AppDatabase extends _$AppDatabase {
               status: row.status,
               officialNote: row.officialNote,
               passDurationMinutes: row.passDurationMinutes,
+              brothersCount: row.brothersCount,
+              nazarenesCount: row.nazarenesCount,
               brotherhoodName: row.brotherhoodName,
               brotherhoodSlug: row.brotherhoodSlug,
               brotherhoodColorHex: row.brotherhoodColorHex,

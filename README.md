@@ -164,3 +164,20 @@ flutter pub run build_runner build --delete-conflicting-outputs
 - `Detalle de jornada`: horario, mapa, hermandades y plan con datos locales.
 - `Más`: configuración visible, tema, reloj de pruebas y sync manual.
 - `Planning`: placeholder.
+
+## Companion Apple Watch (base)
+
+En iOS (`/ios/Runner/AppDelegate.swift`) existe bridge `WatchConnectivity` para:
+
+- Enviar snapshot de jornadas al Watch (`citySlug`, `editionYear`, `mode`, `days`, `syncedAt`).
+- Responder `requestSnapshot` desde Watch.
+- Recibir `openOnPhone` desde Watch para abrir la app iPhone (`larevira://`).
+
+El esquema URL `larevira` queda registrado en `/ios/Runner/Info.plist`.
+
+Deep links usados desde Watch:
+
+- `larevira:/hoy`
+- `larevira:/planning`
+
+Si la app iPhone todavía está en `/startup`, la ruta solicitada por Watch se conserva y se abre al terminar la sincronización inicial.

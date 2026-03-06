@@ -4,12 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/day_detail.dart';
 import '../models/day_index_item.dart';
 
-enum AppTab {
-  hoy,
-  jornadas,
-  planning,
-  more,
-}
+enum AppTab { hoy, jornadas, planning, more }
 
 final class AppRoutes {
   static const root = '/';
@@ -32,6 +27,10 @@ final class AppRoutes {
 
   static String dayDetail(String slug) => '$jornadas/day/$slug';
   static String brotherhoodDetail(String slug) => '/brotherhoods/$slug';
+
+  static bool isWatchEntryRoute(String path) {
+    return path == hoy || path == planning;
+  }
 }
 
 class BrotherhoodDetailRouteData {
@@ -42,6 +41,16 @@ class BrotherhoodDetailRouteData {
 
   final DayProcessionEvent event;
   final String dayName;
+}
+
+class BrotherhoodDetailReturnData {
+  const BrotherhoodDetailReturnData({
+    required this.sectionIndex,
+    required this.brotherhoodSlug,
+  });
+
+  final int sectionIndex;
+  final String brotherhoodSlug;
 }
 
 extension AppTabRoute on AppTab {
@@ -113,10 +122,7 @@ extension AppRouterContext on BuildContext {
     return pushNamed<T>(
       AppRoutes.brotherhoodDetailName,
       pathParameters: {'slug': event.brotherhoodSlug},
-      extra: BrotherhoodDetailRouteData(
-        event: event,
-        dayName: dayName,
-      ),
+      extra: BrotherhoodDetailRouteData(event: event, dayName: dayName),
     );
   }
 }

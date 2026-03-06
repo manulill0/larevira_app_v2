@@ -40,7 +40,7 @@ class _MorePageState extends ConsumerState<MorePage>
       editionYear,
       '/days',
     );
-    final isTablet = MediaQuery.sizeOf(context).width >= 840;
+    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
 
     final apiSection = _SettingsSection(
       title: 'API Base URL',
