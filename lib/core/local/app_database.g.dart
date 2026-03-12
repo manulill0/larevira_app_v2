@@ -332,6 +332,18 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _liturgicalDateMeta = const VerificationMeta(
+    'liturgicalDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> liturgicalDate =
+      GeneratedColumn<DateTime>(
+        'liturgical_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _processionEventsCountMeta =
       const VerificationMeta('processionEventsCount');
   @override
@@ -342,6 +354,62 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _weatherIconCodeMeta = const VerificationMeta(
+    'weatherIconCode',
+  );
+  @override
+  late final GeneratedColumn<String> weatherIconCode = GeneratedColumn<String>(
+    'weather_icon_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _weatherConditionLabelMeta =
+      const VerificationMeta('weatherConditionLabel');
+  @override
+  late final GeneratedColumn<String> weatherConditionLabel =
+      GeneratedColumn<String>(
+        'weather_condition_label',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _weatherTempMinCMeta = const VerificationMeta(
+    'weatherTempMinC',
+  );
+  @override
+  late final GeneratedColumn<double> weatherTempMinC = GeneratedColumn<double>(
+    'weather_temp_min_c',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _weatherTempMaxCMeta = const VerificationMeta(
+    'weatherTempMaxC',
+  );
+  @override
+  late final GeneratedColumn<double> weatherTempMaxC = GeneratedColumn<double>(
+    'weather_temp_max_c',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _weatherHourlyJsonMeta = const VerificationMeta(
+    'weatherHourlyJson',
+  );
+  @override
+  late final GeneratedColumn<String> weatherHourlyJson =
+      GeneratedColumn<String>(
+        'weather_hourly_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     citySlug,
@@ -350,7 +418,13 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
     slug,
     name,
     startsAt,
+    liturgicalDate,
     processionEventsCount,
+    weatherIconCode,
+    weatherConditionLabel,
+    weatherTempMinC,
+    weatherTempMaxC,
+    weatherHourlyJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -410,6 +484,15 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
         startsAt.isAcceptableOrUnknown(data['starts_at']!, _startsAtMeta),
       );
     }
+    if (data.containsKey('liturgical_date')) {
+      context.handle(
+        _liturgicalDateMeta,
+        liturgicalDate.isAcceptableOrUnknown(
+          data['liturgical_date']!,
+          _liturgicalDateMeta,
+        ),
+      );
+    }
     if (data.containsKey('procession_events_count')) {
       context.handle(
         _processionEventsCountMeta,
@@ -420,6 +503,51 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
       );
     } else if (isInserting) {
       context.missing(_processionEventsCountMeta);
+    }
+    if (data.containsKey('weather_icon_code')) {
+      context.handle(
+        _weatherIconCodeMeta,
+        weatherIconCode.isAcceptableOrUnknown(
+          data['weather_icon_code']!,
+          _weatherIconCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weather_condition_label')) {
+      context.handle(
+        _weatherConditionLabelMeta,
+        weatherConditionLabel.isAcceptableOrUnknown(
+          data['weather_condition_label']!,
+          _weatherConditionLabelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weather_temp_min_c')) {
+      context.handle(
+        _weatherTempMinCMeta,
+        weatherTempMinC.isAcceptableOrUnknown(
+          data['weather_temp_min_c']!,
+          _weatherTempMinCMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weather_temp_max_c')) {
+      context.handle(
+        _weatherTempMaxCMeta,
+        weatherTempMaxC.isAcceptableOrUnknown(
+          data['weather_temp_max_c']!,
+          _weatherTempMaxCMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weather_hourly_json')) {
+      context.handle(
+        _weatherHourlyJsonMeta,
+        weatherHourlyJson.isAcceptableOrUnknown(
+          data['weather_hourly_json']!,
+          _weatherHourlyJsonMeta,
+        ),
+      );
     }
     return context;
   }
@@ -454,10 +582,34 @@ class $DaysTable extends Days with TableInfo<$DaysTable, Day> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}starts_at'],
       ),
+      liturgicalDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}liturgical_date'],
+      ),
       processionEventsCount: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}procession_events_count'],
       )!,
+      weatherIconCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}weather_icon_code'],
+      ),
+      weatherConditionLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}weather_condition_label'],
+      ),
+      weatherTempMinC: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}weather_temp_min_c'],
+      ),
+      weatherTempMaxC: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}weather_temp_max_c'],
+      ),
+      weatherHourlyJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}weather_hourly_json'],
+      ),
     );
   }
 
@@ -474,7 +626,13 @@ class Day extends DataClass implements Insertable<Day> {
   final String slug;
   final String name;
   final DateTime? startsAt;
+  final DateTime? liturgicalDate;
   final int processionEventsCount;
+  final String? weatherIconCode;
+  final String? weatherConditionLabel;
+  final double? weatherTempMinC;
+  final double? weatherTempMaxC;
+  final String? weatherHourlyJson;
   const Day({
     required this.citySlug,
     required this.yearValue,
@@ -482,7 +640,13 @@ class Day extends DataClass implements Insertable<Day> {
     required this.slug,
     required this.name,
     this.startsAt,
+    this.liturgicalDate,
     required this.processionEventsCount,
+    this.weatherIconCode,
+    this.weatherConditionLabel,
+    this.weatherTempMinC,
+    this.weatherTempMaxC,
+    this.weatherHourlyJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -495,7 +659,25 @@ class Day extends DataClass implements Insertable<Day> {
     if (!nullToAbsent || startsAt != null) {
       map['starts_at'] = Variable<DateTime>(startsAt);
     }
+    if (!nullToAbsent || liturgicalDate != null) {
+      map['liturgical_date'] = Variable<DateTime>(liturgicalDate);
+    }
     map['procession_events_count'] = Variable<int>(processionEventsCount);
+    if (!nullToAbsent || weatherIconCode != null) {
+      map['weather_icon_code'] = Variable<String>(weatherIconCode);
+    }
+    if (!nullToAbsent || weatherConditionLabel != null) {
+      map['weather_condition_label'] = Variable<String>(weatherConditionLabel);
+    }
+    if (!nullToAbsent || weatherTempMinC != null) {
+      map['weather_temp_min_c'] = Variable<double>(weatherTempMinC);
+    }
+    if (!nullToAbsent || weatherTempMaxC != null) {
+      map['weather_temp_max_c'] = Variable<double>(weatherTempMaxC);
+    }
+    if (!nullToAbsent || weatherHourlyJson != null) {
+      map['weather_hourly_json'] = Variable<String>(weatherHourlyJson);
+    }
     return map;
   }
 
@@ -509,7 +691,25 @@ class Day extends DataClass implements Insertable<Day> {
       startsAt: startsAt == null && nullToAbsent
           ? const Value.absent()
           : Value(startsAt),
+      liturgicalDate: liturgicalDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(liturgicalDate),
       processionEventsCount: Value(processionEventsCount),
+      weatherIconCode: weatherIconCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weatherIconCode),
+      weatherConditionLabel: weatherConditionLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weatherConditionLabel),
+      weatherTempMinC: weatherTempMinC == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weatherTempMinC),
+      weatherTempMaxC: weatherTempMaxC == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weatherTempMaxC),
+      weatherHourlyJson: weatherHourlyJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weatherHourlyJson),
     );
   }
 
@@ -525,8 +725,18 @@ class Day extends DataClass implements Insertable<Day> {
       slug: serializer.fromJson<String>(json['slug']),
       name: serializer.fromJson<String>(json['name']),
       startsAt: serializer.fromJson<DateTime?>(json['startsAt']),
+      liturgicalDate: serializer.fromJson<DateTime?>(json['liturgicalDate']),
       processionEventsCount: serializer.fromJson<int>(
         json['processionEventsCount'],
+      ),
+      weatherIconCode: serializer.fromJson<String?>(json['weatherIconCode']),
+      weatherConditionLabel: serializer.fromJson<String?>(
+        json['weatherConditionLabel'],
+      ),
+      weatherTempMinC: serializer.fromJson<double?>(json['weatherTempMinC']),
+      weatherTempMaxC: serializer.fromJson<double?>(json['weatherTempMaxC']),
+      weatherHourlyJson: serializer.fromJson<String?>(
+        json['weatherHourlyJson'],
       ),
     );
   }
@@ -540,7 +750,15 @@ class Day extends DataClass implements Insertable<Day> {
       'slug': serializer.toJson<String>(slug),
       'name': serializer.toJson<String>(name),
       'startsAt': serializer.toJson<DateTime?>(startsAt),
+      'liturgicalDate': serializer.toJson<DateTime?>(liturgicalDate),
       'processionEventsCount': serializer.toJson<int>(processionEventsCount),
+      'weatherIconCode': serializer.toJson<String?>(weatherIconCode),
+      'weatherConditionLabel': serializer.toJson<String?>(
+        weatherConditionLabel,
+      ),
+      'weatherTempMinC': serializer.toJson<double?>(weatherTempMinC),
+      'weatherTempMaxC': serializer.toJson<double?>(weatherTempMaxC),
+      'weatherHourlyJson': serializer.toJson<String?>(weatherHourlyJson),
     };
   }
 
@@ -551,7 +769,13 @@ class Day extends DataClass implements Insertable<Day> {
     String? slug,
     String? name,
     Value<DateTime?> startsAt = const Value.absent(),
+    Value<DateTime?> liturgicalDate = const Value.absent(),
     int? processionEventsCount,
+    Value<String?> weatherIconCode = const Value.absent(),
+    Value<String?> weatherConditionLabel = const Value.absent(),
+    Value<double?> weatherTempMinC = const Value.absent(),
+    Value<double?> weatherTempMaxC = const Value.absent(),
+    Value<String?> weatherHourlyJson = const Value.absent(),
   }) => Day(
     citySlug: citySlug ?? this.citySlug,
     yearValue: yearValue ?? this.yearValue,
@@ -559,7 +783,25 @@ class Day extends DataClass implements Insertable<Day> {
     slug: slug ?? this.slug,
     name: name ?? this.name,
     startsAt: startsAt.present ? startsAt.value : this.startsAt,
+    liturgicalDate: liturgicalDate.present
+        ? liturgicalDate.value
+        : this.liturgicalDate,
     processionEventsCount: processionEventsCount ?? this.processionEventsCount,
+    weatherIconCode: weatherIconCode.present
+        ? weatherIconCode.value
+        : this.weatherIconCode,
+    weatherConditionLabel: weatherConditionLabel.present
+        ? weatherConditionLabel.value
+        : this.weatherConditionLabel,
+    weatherTempMinC: weatherTempMinC.present
+        ? weatherTempMinC.value
+        : this.weatherTempMinC,
+    weatherTempMaxC: weatherTempMaxC.present
+        ? weatherTempMaxC.value
+        : this.weatherTempMaxC,
+    weatherHourlyJson: weatherHourlyJson.present
+        ? weatherHourlyJson.value
+        : this.weatherHourlyJson,
   );
   Day copyWithCompanion(DaysCompanion data) {
     return Day(
@@ -569,9 +811,27 @@ class Day extends DataClass implements Insertable<Day> {
       slug: data.slug.present ? data.slug.value : this.slug,
       name: data.name.present ? data.name.value : this.name,
       startsAt: data.startsAt.present ? data.startsAt.value : this.startsAt,
+      liturgicalDate: data.liturgicalDate.present
+          ? data.liturgicalDate.value
+          : this.liturgicalDate,
       processionEventsCount: data.processionEventsCount.present
           ? data.processionEventsCount.value
           : this.processionEventsCount,
+      weatherIconCode: data.weatherIconCode.present
+          ? data.weatherIconCode.value
+          : this.weatherIconCode,
+      weatherConditionLabel: data.weatherConditionLabel.present
+          ? data.weatherConditionLabel.value
+          : this.weatherConditionLabel,
+      weatherTempMinC: data.weatherTempMinC.present
+          ? data.weatherTempMinC.value
+          : this.weatherTempMinC,
+      weatherTempMaxC: data.weatherTempMaxC.present
+          ? data.weatherTempMaxC.value
+          : this.weatherTempMaxC,
+      weatherHourlyJson: data.weatherHourlyJson.present
+          ? data.weatherHourlyJson.value
+          : this.weatherHourlyJson,
     );
   }
 
@@ -584,7 +844,13 @@ class Day extends DataClass implements Insertable<Day> {
           ..write('slug: $slug, ')
           ..write('name: $name, ')
           ..write('startsAt: $startsAt, ')
-          ..write('processionEventsCount: $processionEventsCount')
+          ..write('liturgicalDate: $liturgicalDate, ')
+          ..write('processionEventsCount: $processionEventsCount, ')
+          ..write('weatherIconCode: $weatherIconCode, ')
+          ..write('weatherConditionLabel: $weatherConditionLabel, ')
+          ..write('weatherTempMinC: $weatherTempMinC, ')
+          ..write('weatherTempMaxC: $weatherTempMaxC, ')
+          ..write('weatherHourlyJson: $weatherHourlyJson')
           ..write(')'))
         .toString();
   }
@@ -597,7 +863,13 @@ class Day extends DataClass implements Insertable<Day> {
     slug,
     name,
     startsAt,
+    liturgicalDate,
     processionEventsCount,
+    weatherIconCode,
+    weatherConditionLabel,
+    weatherTempMinC,
+    weatherTempMaxC,
+    weatherHourlyJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -609,7 +881,13 @@ class Day extends DataClass implements Insertable<Day> {
           other.slug == this.slug &&
           other.name == this.name &&
           other.startsAt == this.startsAt &&
-          other.processionEventsCount == this.processionEventsCount);
+          other.liturgicalDate == this.liturgicalDate &&
+          other.processionEventsCount == this.processionEventsCount &&
+          other.weatherIconCode == this.weatherIconCode &&
+          other.weatherConditionLabel == this.weatherConditionLabel &&
+          other.weatherTempMinC == this.weatherTempMinC &&
+          other.weatherTempMaxC == this.weatherTempMaxC &&
+          other.weatherHourlyJson == this.weatherHourlyJson);
 }
 
 class DaysCompanion extends UpdateCompanion<Day> {
@@ -619,7 +897,13 @@ class DaysCompanion extends UpdateCompanion<Day> {
   final Value<String> slug;
   final Value<String> name;
   final Value<DateTime?> startsAt;
+  final Value<DateTime?> liturgicalDate;
   final Value<int> processionEventsCount;
+  final Value<String?> weatherIconCode;
+  final Value<String?> weatherConditionLabel;
+  final Value<double?> weatherTempMinC;
+  final Value<double?> weatherTempMaxC;
+  final Value<String?> weatherHourlyJson;
   final Value<int> rowid;
   const DaysCompanion({
     this.citySlug = const Value.absent(),
@@ -628,7 +912,13 @@ class DaysCompanion extends UpdateCompanion<Day> {
     this.slug = const Value.absent(),
     this.name = const Value.absent(),
     this.startsAt = const Value.absent(),
+    this.liturgicalDate = const Value.absent(),
     this.processionEventsCount = const Value.absent(),
+    this.weatherIconCode = const Value.absent(),
+    this.weatherConditionLabel = const Value.absent(),
+    this.weatherTempMinC = const Value.absent(),
+    this.weatherTempMaxC = const Value.absent(),
+    this.weatherHourlyJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DaysCompanion.insert({
@@ -638,7 +928,13 @@ class DaysCompanion extends UpdateCompanion<Day> {
     required String slug,
     required String name,
     this.startsAt = const Value.absent(),
+    this.liturgicalDate = const Value.absent(),
     required int processionEventsCount,
+    this.weatherIconCode = const Value.absent(),
+    this.weatherConditionLabel = const Value.absent(),
+    this.weatherTempMinC = const Value.absent(),
+    this.weatherTempMaxC = const Value.absent(),
+    this.weatherHourlyJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : citySlug = Value(citySlug),
        yearValue = Value(yearValue),
@@ -653,7 +949,13 @@ class DaysCompanion extends UpdateCompanion<Day> {
     Expression<String>? slug,
     Expression<String>? name,
     Expression<DateTime>? startsAt,
+    Expression<DateTime>? liturgicalDate,
     Expression<int>? processionEventsCount,
+    Expression<String>? weatherIconCode,
+    Expression<String>? weatherConditionLabel,
+    Expression<double>? weatherTempMinC,
+    Expression<double>? weatherTempMaxC,
+    Expression<String>? weatherHourlyJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -663,8 +965,15 @@ class DaysCompanion extends UpdateCompanion<Day> {
       if (slug != null) 'slug': slug,
       if (name != null) 'name': name,
       if (startsAt != null) 'starts_at': startsAt,
+      if (liturgicalDate != null) 'liturgical_date': liturgicalDate,
       if (processionEventsCount != null)
         'procession_events_count': processionEventsCount,
+      if (weatherIconCode != null) 'weather_icon_code': weatherIconCode,
+      if (weatherConditionLabel != null)
+        'weather_condition_label': weatherConditionLabel,
+      if (weatherTempMinC != null) 'weather_temp_min_c': weatherTempMinC,
+      if (weatherTempMaxC != null) 'weather_temp_max_c': weatherTempMaxC,
+      if (weatherHourlyJson != null) 'weather_hourly_json': weatherHourlyJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -676,7 +985,13 @@ class DaysCompanion extends UpdateCompanion<Day> {
     Value<String>? slug,
     Value<String>? name,
     Value<DateTime?>? startsAt,
+    Value<DateTime?>? liturgicalDate,
     Value<int>? processionEventsCount,
+    Value<String?>? weatherIconCode,
+    Value<String?>? weatherConditionLabel,
+    Value<double?>? weatherTempMinC,
+    Value<double?>? weatherTempMaxC,
+    Value<String?>? weatherHourlyJson,
     Value<int>? rowid,
   }) {
     return DaysCompanion(
@@ -686,8 +1001,15 @@ class DaysCompanion extends UpdateCompanion<Day> {
       slug: slug ?? this.slug,
       name: name ?? this.name,
       startsAt: startsAt ?? this.startsAt,
+      liturgicalDate: liturgicalDate ?? this.liturgicalDate,
       processionEventsCount:
           processionEventsCount ?? this.processionEventsCount,
+      weatherIconCode: weatherIconCode ?? this.weatherIconCode,
+      weatherConditionLabel:
+          weatherConditionLabel ?? this.weatherConditionLabel,
+      weatherTempMinC: weatherTempMinC ?? this.weatherTempMinC,
+      weatherTempMaxC: weatherTempMaxC ?? this.weatherTempMaxC,
+      weatherHourlyJson: weatherHourlyJson ?? this.weatherHourlyJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -713,10 +1035,30 @@ class DaysCompanion extends UpdateCompanion<Day> {
     if (startsAt.present) {
       map['starts_at'] = Variable<DateTime>(startsAt.value);
     }
+    if (liturgicalDate.present) {
+      map['liturgical_date'] = Variable<DateTime>(liturgicalDate.value);
+    }
     if (processionEventsCount.present) {
       map['procession_events_count'] = Variable<int>(
         processionEventsCount.value,
       );
+    }
+    if (weatherIconCode.present) {
+      map['weather_icon_code'] = Variable<String>(weatherIconCode.value);
+    }
+    if (weatherConditionLabel.present) {
+      map['weather_condition_label'] = Variable<String>(
+        weatherConditionLabel.value,
+      );
+    }
+    if (weatherTempMinC.present) {
+      map['weather_temp_min_c'] = Variable<double>(weatherTempMinC.value);
+    }
+    if (weatherTempMaxC.present) {
+      map['weather_temp_max_c'] = Variable<double>(weatherTempMaxC.value);
+    }
+    if (weatherHourlyJson.present) {
+      map['weather_hourly_json'] = Variable<String>(weatherHourlyJson.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -733,7 +1075,13 @@ class DaysCompanion extends UpdateCompanion<Day> {
           ..write('slug: $slug, ')
           ..write('name: $name, ')
           ..write('startsAt: $startsAt, ')
+          ..write('liturgicalDate: $liturgicalDate, ')
           ..write('processionEventsCount: $processionEventsCount, ')
+          ..write('weatherIconCode: $weatherIconCode, ')
+          ..write('weatherConditionLabel: $weatherConditionLabel, ')
+          ..write('weatherTempMinC: $weatherTempMinC, ')
+          ..write('weatherTempMaxC: $weatherTempMaxC, ')
+          ..write('weatherHourlyJson: $weatherHourlyJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1251,6 +1599,28 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _stepsCountMeta = const VerificationMeta(
+    'stepsCount',
+  );
+  @override
+  late final GeneratedColumn<int> stepsCount = GeneratedColumn<int>(
+    'steps_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _distanceMetersMeta = const VerificationMeta(
+    'distanceMeters',
+  );
+  @override
+  late final GeneratedColumn<int> distanceMeters = GeneratedColumn<int>(
+    'distance_meters',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _brothersCountMeta = const VerificationMeta(
     'brothersCount',
   );
@@ -1306,12 +1676,89 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
         type: DriftSqlType.string,
         requiredDuringInsert: true,
       );
+  static const VerificationMeta _brotherhoodHistoryMeta =
+      const VerificationMeta('brotherhoodHistory');
+  @override
+  late final GeneratedColumn<String> brotherhoodHistory =
+      GeneratedColumn<String>(
+        'brotherhood_history',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _brotherhoodHeaderImageUrlMeta =
+      const VerificationMeta('brotherhoodHeaderImageUrl');
+  @override
+  late final GeneratedColumn<String> brotherhoodHeaderImageUrl =
+      GeneratedColumn<String>(
+        'brotherhood_header_image_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _brotherhoodDressCodeMeta =
+      const VerificationMeta('brotherhoodDressCode');
+  @override
+  late final GeneratedColumn<String> brotherhoodDressCode =
+      GeneratedColumn<String>(
+        'brotherhood_dress_code',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _brotherhoodFiguresJsonMeta =
+      const VerificationMeta('brotherhoodFiguresJson');
+  @override
+  late final GeneratedColumn<String> brotherhoodFiguresJson =
+      GeneratedColumn<String>(
+        'brotherhood_figures_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _brotherhoodPasosJsonMeta =
+      const VerificationMeta('brotherhoodPasosJson');
+  @override
+  late final GeneratedColumn<String> brotherhoodPasosJson =
+      GeneratedColumn<String>(
+        'brotherhood_pasos_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _brotherhoodShieldImageUrlMeta =
+      const VerificationMeta('brotherhoodShieldImageUrl');
+  @override
+  late final GeneratedColumn<String> brotherhoodShieldImageUrl =
+      GeneratedColumn<String>(
+        'brotherhood_shield_image_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _routeArgbMeta = const VerificationMeta(
     'routeArgb',
   );
   @override
   late final GeneratedColumn<String> routeArgb = GeneratedColumn<String>(
     'route_argb',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _routeKmlMeta = const VerificationMeta(
+    'routeKml',
+  );
+  @override
+  late final GeneratedColumn<String> routeKml = GeneratedColumn<String>(
+    'route_kml',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -1327,12 +1774,21 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
     status,
     officialNote,
     passDurationMinutes,
+    stepsCount,
+    distanceMeters,
     brothersCount,
     nazarenesCount,
     brotherhoodName,
     brotherhoodSlug,
     brotherhoodColorHex,
+    brotherhoodHistory,
+    brotherhoodHeaderImageUrl,
+    brotherhoodDressCode,
+    brotherhoodFiguresJson,
+    brotherhoodPasosJson,
+    brotherhoodShieldImageUrl,
     routeArgb,
+    routeKml,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1414,6 +1870,21 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
         ),
       );
     }
+    if (data.containsKey('steps_count')) {
+      context.handle(
+        _stepsCountMeta,
+        stepsCount.isAcceptableOrUnknown(data['steps_count']!, _stepsCountMeta),
+      );
+    }
+    if (data.containsKey('distance_meters')) {
+      context.handle(
+        _distanceMetersMeta,
+        distanceMeters.isAcceptableOrUnknown(
+          data['distance_meters']!,
+          _distanceMetersMeta,
+        ),
+      );
+    }
     if (data.containsKey('brothers_count')) {
       context.handle(
         _brothersCountMeta,
@@ -1465,10 +1936,70 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
     } else if (isInserting) {
       context.missing(_brotherhoodColorHexMeta);
     }
+    if (data.containsKey('brotherhood_history')) {
+      context.handle(
+        _brotherhoodHistoryMeta,
+        brotherhoodHistory.isAcceptableOrUnknown(
+          data['brotherhood_history']!,
+          _brotherhoodHistoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('brotherhood_header_image_url')) {
+      context.handle(
+        _brotherhoodHeaderImageUrlMeta,
+        brotherhoodHeaderImageUrl.isAcceptableOrUnknown(
+          data['brotherhood_header_image_url']!,
+          _brotherhoodHeaderImageUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('brotherhood_dress_code')) {
+      context.handle(
+        _brotherhoodDressCodeMeta,
+        brotherhoodDressCode.isAcceptableOrUnknown(
+          data['brotherhood_dress_code']!,
+          _brotherhoodDressCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('brotherhood_figures_json')) {
+      context.handle(
+        _brotherhoodFiguresJsonMeta,
+        brotherhoodFiguresJson.isAcceptableOrUnknown(
+          data['brotherhood_figures_json']!,
+          _brotherhoodFiguresJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('brotherhood_pasos_json')) {
+      context.handle(
+        _brotherhoodPasosJsonMeta,
+        brotherhoodPasosJson.isAcceptableOrUnknown(
+          data['brotherhood_pasos_json']!,
+          _brotherhoodPasosJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('brotherhood_shield_image_url')) {
+      context.handle(
+        _brotherhoodShieldImageUrlMeta,
+        brotherhoodShieldImageUrl.isAcceptableOrUnknown(
+          data['brotherhood_shield_image_url']!,
+          _brotherhoodShieldImageUrlMeta,
+        ),
+      );
+    }
     if (data.containsKey('route_argb')) {
       context.handle(
         _routeArgbMeta,
         routeArgb.isAcceptableOrUnknown(data['route_argb']!, _routeArgbMeta),
+      );
+    }
+    if (data.containsKey('route_kml')) {
+      context.handle(
+        _routeKmlMeta,
+        routeKml.isAcceptableOrUnknown(data['route_kml']!, _routeKmlMeta),
       );
     }
     return context;
@@ -1521,6 +2052,14 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
         DriftSqlType.int,
         data['${effectivePrefix}pass_duration_minutes'],
       ),
+      stepsCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}steps_count'],
+      ),
+      distanceMeters: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}distance_meters'],
+      ),
       brothersCount: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}brothers_count'],
@@ -1541,9 +2080,37 @@ class $DayProcessionEventEntriesTable extends DayProcessionEventEntries
         DriftSqlType.string,
         data['${effectivePrefix}brotherhood_color_hex'],
       )!,
+      brotherhoodHistory: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}brotherhood_history'],
+      ),
+      brotherhoodHeaderImageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}brotherhood_header_image_url'],
+      ),
+      brotherhoodDressCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}brotherhood_dress_code'],
+      ),
+      brotherhoodFiguresJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}brotherhood_figures_json'],
+      ),
+      brotherhoodPasosJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}brotherhood_pasos_json'],
+      ),
+      brotherhoodShieldImageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}brotherhood_shield_image_url'],
+      ),
       routeArgb: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}route_argb'],
+      ),
+      routeKml: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}route_kml'],
       ),
     );
   }
@@ -1564,12 +2131,21 @@ class DayProcessionEventEntry extends DataClass
   final String status;
   final String officialNote;
   final int? passDurationMinutes;
+  final int? stepsCount;
+  final int? distanceMeters;
   final int? brothersCount;
   final int? nazarenesCount;
   final String brotherhoodName;
   final String brotherhoodSlug;
   final String brotherhoodColorHex;
+  final String? brotherhoodHistory;
+  final String? brotherhoodHeaderImageUrl;
+  final String? brotherhoodDressCode;
+  final String? brotherhoodFiguresJson;
+  final String? brotherhoodPasosJson;
+  final String? brotherhoodShieldImageUrl;
   final String? routeArgb;
+  final String? routeKml;
   const DayProcessionEventEntry({
     required this.citySlug,
     required this.yearValue,
@@ -1579,12 +2155,21 @@ class DayProcessionEventEntry extends DataClass
     required this.status,
     required this.officialNote,
     this.passDurationMinutes,
+    this.stepsCount,
+    this.distanceMeters,
     this.brothersCount,
     this.nazarenesCount,
     required this.brotherhoodName,
     required this.brotherhoodSlug,
     required this.brotherhoodColorHex,
+    this.brotherhoodHistory,
+    this.brotherhoodHeaderImageUrl,
+    this.brotherhoodDressCode,
+    this.brotherhoodFiguresJson,
+    this.brotherhoodPasosJson,
+    this.brotherhoodShieldImageUrl,
     this.routeArgb,
+    this.routeKml,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1599,6 +2184,12 @@ class DayProcessionEventEntry extends DataClass
     if (!nullToAbsent || passDurationMinutes != null) {
       map['pass_duration_minutes'] = Variable<int>(passDurationMinutes);
     }
+    if (!nullToAbsent || stepsCount != null) {
+      map['steps_count'] = Variable<int>(stepsCount);
+    }
+    if (!nullToAbsent || distanceMeters != null) {
+      map['distance_meters'] = Variable<int>(distanceMeters);
+    }
     if (!nullToAbsent || brothersCount != null) {
       map['brothers_count'] = Variable<int>(brothersCount);
     }
@@ -1608,8 +2199,35 @@ class DayProcessionEventEntry extends DataClass
     map['brotherhood_name'] = Variable<String>(brotherhoodName);
     map['brotherhood_slug'] = Variable<String>(brotherhoodSlug);
     map['brotherhood_color_hex'] = Variable<String>(brotherhoodColorHex);
+    if (!nullToAbsent || brotherhoodHistory != null) {
+      map['brotherhood_history'] = Variable<String>(brotherhoodHistory);
+    }
+    if (!nullToAbsent || brotherhoodHeaderImageUrl != null) {
+      map['brotherhood_header_image_url'] = Variable<String>(
+        brotherhoodHeaderImageUrl,
+      );
+    }
+    if (!nullToAbsent || brotherhoodDressCode != null) {
+      map['brotherhood_dress_code'] = Variable<String>(brotherhoodDressCode);
+    }
+    if (!nullToAbsent || brotherhoodFiguresJson != null) {
+      map['brotherhood_figures_json'] = Variable<String>(
+        brotherhoodFiguresJson,
+      );
+    }
+    if (!nullToAbsent || brotherhoodPasosJson != null) {
+      map['brotherhood_pasos_json'] = Variable<String>(brotherhoodPasosJson);
+    }
+    if (!nullToAbsent || brotherhoodShieldImageUrl != null) {
+      map['brotherhood_shield_image_url'] = Variable<String>(
+        brotherhoodShieldImageUrl,
+      );
+    }
     if (!nullToAbsent || routeArgb != null) {
       map['route_argb'] = Variable<String>(routeArgb);
+    }
+    if (!nullToAbsent || routeKml != null) {
+      map['route_kml'] = Variable<String>(routeKml);
     }
     return map;
   }
@@ -1626,6 +2244,12 @@ class DayProcessionEventEntry extends DataClass
       passDurationMinutes: passDurationMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(passDurationMinutes),
+      stepsCount: stepsCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stepsCount),
+      distanceMeters: distanceMeters == null && nullToAbsent
+          ? const Value.absent()
+          : Value(distanceMeters),
       brothersCount: brothersCount == null && nullToAbsent
           ? const Value.absent()
           : Value(brothersCount),
@@ -1635,9 +2259,32 @@ class DayProcessionEventEntry extends DataClass
       brotherhoodName: Value(brotherhoodName),
       brotherhoodSlug: Value(brotherhoodSlug),
       brotherhoodColorHex: Value(brotherhoodColorHex),
+      brotherhoodHistory: brotherhoodHistory == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brotherhoodHistory),
+      brotherhoodHeaderImageUrl:
+          brotherhoodHeaderImageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brotherhoodHeaderImageUrl),
+      brotherhoodDressCode: brotherhoodDressCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brotherhoodDressCode),
+      brotherhoodFiguresJson: brotherhoodFiguresJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brotherhoodFiguresJson),
+      brotherhoodPasosJson: brotherhoodPasosJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brotherhoodPasosJson),
+      brotherhoodShieldImageUrl:
+          brotherhoodShieldImageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brotherhoodShieldImageUrl),
       routeArgb: routeArgb == null && nullToAbsent
           ? const Value.absent()
           : Value(routeArgb),
+      routeKml: routeKml == null && nullToAbsent
+          ? const Value.absent()
+          : Value(routeKml),
     );
   }
 
@@ -1657,6 +2304,8 @@ class DayProcessionEventEntry extends DataClass
       passDurationMinutes: serializer.fromJson<int?>(
         json['passDurationMinutes'],
       ),
+      stepsCount: serializer.fromJson<int?>(json['stepsCount']),
+      distanceMeters: serializer.fromJson<int?>(json['distanceMeters']),
       brothersCount: serializer.fromJson<int?>(json['brothersCount']),
       nazarenesCount: serializer.fromJson<int?>(json['nazarenesCount']),
       brotherhoodName: serializer.fromJson<String>(json['brotherhoodName']),
@@ -1664,7 +2313,26 @@ class DayProcessionEventEntry extends DataClass
       brotherhoodColorHex: serializer.fromJson<String>(
         json['brotherhoodColorHex'],
       ),
+      brotherhoodHistory: serializer.fromJson<String?>(
+        json['brotherhoodHistory'],
+      ),
+      brotherhoodHeaderImageUrl: serializer.fromJson<String?>(
+        json['brotherhoodHeaderImageUrl'],
+      ),
+      brotherhoodDressCode: serializer.fromJson<String?>(
+        json['brotherhoodDressCode'],
+      ),
+      brotherhoodFiguresJson: serializer.fromJson<String?>(
+        json['brotherhoodFiguresJson'],
+      ),
+      brotherhoodPasosJson: serializer.fromJson<String?>(
+        json['brotherhoodPasosJson'],
+      ),
+      brotherhoodShieldImageUrl: serializer.fromJson<String?>(
+        json['brotherhoodShieldImageUrl'],
+      ),
       routeArgb: serializer.fromJson<String?>(json['routeArgb']),
+      routeKml: serializer.fromJson<String?>(json['routeKml']),
     );
   }
   @override
@@ -1679,12 +2347,27 @@ class DayProcessionEventEntry extends DataClass
       'status': serializer.toJson<String>(status),
       'officialNote': serializer.toJson<String>(officialNote),
       'passDurationMinutes': serializer.toJson<int?>(passDurationMinutes),
+      'stepsCount': serializer.toJson<int?>(stepsCount),
+      'distanceMeters': serializer.toJson<int?>(distanceMeters),
       'brothersCount': serializer.toJson<int?>(brothersCount),
       'nazarenesCount': serializer.toJson<int?>(nazarenesCount),
       'brotherhoodName': serializer.toJson<String>(brotherhoodName),
       'brotherhoodSlug': serializer.toJson<String>(brotherhoodSlug),
       'brotherhoodColorHex': serializer.toJson<String>(brotherhoodColorHex),
+      'brotherhoodHistory': serializer.toJson<String?>(brotherhoodHistory),
+      'brotherhoodHeaderImageUrl': serializer.toJson<String?>(
+        brotherhoodHeaderImageUrl,
+      ),
+      'brotherhoodDressCode': serializer.toJson<String?>(brotherhoodDressCode),
+      'brotherhoodFiguresJson': serializer.toJson<String?>(
+        brotherhoodFiguresJson,
+      ),
+      'brotherhoodPasosJson': serializer.toJson<String?>(brotherhoodPasosJson),
+      'brotherhoodShieldImageUrl': serializer.toJson<String?>(
+        brotherhoodShieldImageUrl,
+      ),
       'routeArgb': serializer.toJson<String?>(routeArgb),
+      'routeKml': serializer.toJson<String?>(routeKml),
     };
   }
 
@@ -1697,12 +2380,21 @@ class DayProcessionEventEntry extends DataClass
     String? status,
     String? officialNote,
     Value<int?> passDurationMinutes = const Value.absent(),
+    Value<int?> stepsCount = const Value.absent(),
+    Value<int?> distanceMeters = const Value.absent(),
     Value<int?> brothersCount = const Value.absent(),
     Value<int?> nazarenesCount = const Value.absent(),
     String? brotherhoodName,
     String? brotherhoodSlug,
     String? brotherhoodColorHex,
+    Value<String?> brotherhoodHistory = const Value.absent(),
+    Value<String?> brotherhoodHeaderImageUrl = const Value.absent(),
+    Value<String?> brotherhoodDressCode = const Value.absent(),
+    Value<String?> brotherhoodFiguresJson = const Value.absent(),
+    Value<String?> brotherhoodPasosJson = const Value.absent(),
+    Value<String?> brotherhoodShieldImageUrl = const Value.absent(),
     Value<String?> routeArgb = const Value.absent(),
+    Value<String?> routeKml = const Value.absent(),
   }) => DayProcessionEventEntry(
     citySlug: citySlug ?? this.citySlug,
     yearValue: yearValue ?? this.yearValue,
@@ -1714,6 +2406,10 @@ class DayProcessionEventEntry extends DataClass
     passDurationMinutes: passDurationMinutes.present
         ? passDurationMinutes.value
         : this.passDurationMinutes,
+    stepsCount: stepsCount.present ? stepsCount.value : this.stepsCount,
+    distanceMeters: distanceMeters.present
+        ? distanceMeters.value
+        : this.distanceMeters,
     brothersCount: brothersCount.present
         ? brothersCount.value
         : this.brothersCount,
@@ -1723,7 +2419,26 @@ class DayProcessionEventEntry extends DataClass
     brotherhoodName: brotherhoodName ?? this.brotherhoodName,
     brotherhoodSlug: brotherhoodSlug ?? this.brotherhoodSlug,
     brotherhoodColorHex: brotherhoodColorHex ?? this.brotherhoodColorHex,
+    brotherhoodHistory: brotherhoodHistory.present
+        ? brotherhoodHistory.value
+        : this.brotherhoodHistory,
+    brotherhoodHeaderImageUrl: brotherhoodHeaderImageUrl.present
+        ? brotherhoodHeaderImageUrl.value
+        : this.brotherhoodHeaderImageUrl,
+    brotherhoodDressCode: brotherhoodDressCode.present
+        ? brotherhoodDressCode.value
+        : this.brotherhoodDressCode,
+    brotherhoodFiguresJson: brotherhoodFiguresJson.present
+        ? brotherhoodFiguresJson.value
+        : this.brotherhoodFiguresJson,
+    brotherhoodPasosJson: brotherhoodPasosJson.present
+        ? brotherhoodPasosJson.value
+        : this.brotherhoodPasosJson,
+    brotherhoodShieldImageUrl: brotherhoodShieldImageUrl.present
+        ? brotherhoodShieldImageUrl.value
+        : this.brotherhoodShieldImageUrl,
     routeArgb: routeArgb.present ? routeArgb.value : this.routeArgb,
+    routeKml: routeKml.present ? routeKml.value : this.routeKml,
   );
   DayProcessionEventEntry copyWithCompanion(
     DayProcessionEventEntriesCompanion data,
@@ -1741,6 +2456,12 @@ class DayProcessionEventEntry extends DataClass
       passDurationMinutes: data.passDurationMinutes.present
           ? data.passDurationMinutes.value
           : this.passDurationMinutes,
+      stepsCount: data.stepsCount.present
+          ? data.stepsCount.value
+          : this.stepsCount,
+      distanceMeters: data.distanceMeters.present
+          ? data.distanceMeters.value
+          : this.distanceMeters,
       brothersCount: data.brothersCount.present
           ? data.brothersCount.value
           : this.brothersCount,
@@ -1756,7 +2477,26 @@ class DayProcessionEventEntry extends DataClass
       brotherhoodColorHex: data.brotherhoodColorHex.present
           ? data.brotherhoodColorHex.value
           : this.brotherhoodColorHex,
+      brotherhoodHistory: data.brotherhoodHistory.present
+          ? data.brotherhoodHistory.value
+          : this.brotherhoodHistory,
+      brotherhoodHeaderImageUrl: data.brotherhoodHeaderImageUrl.present
+          ? data.brotherhoodHeaderImageUrl.value
+          : this.brotherhoodHeaderImageUrl,
+      brotherhoodDressCode: data.brotherhoodDressCode.present
+          ? data.brotherhoodDressCode.value
+          : this.brotherhoodDressCode,
+      brotherhoodFiguresJson: data.brotherhoodFiguresJson.present
+          ? data.brotherhoodFiguresJson.value
+          : this.brotherhoodFiguresJson,
+      brotherhoodPasosJson: data.brotherhoodPasosJson.present
+          ? data.brotherhoodPasosJson.value
+          : this.brotherhoodPasosJson,
+      brotherhoodShieldImageUrl: data.brotherhoodShieldImageUrl.present
+          ? data.brotherhoodShieldImageUrl.value
+          : this.brotherhoodShieldImageUrl,
       routeArgb: data.routeArgb.present ? data.routeArgb.value : this.routeArgb,
+      routeKml: data.routeKml.present ? data.routeKml.value : this.routeKml,
     );
   }
 
@@ -1771,18 +2511,27 @@ class DayProcessionEventEntry extends DataClass
           ..write('status: $status, ')
           ..write('officialNote: $officialNote, ')
           ..write('passDurationMinutes: $passDurationMinutes, ')
+          ..write('stepsCount: $stepsCount, ')
+          ..write('distanceMeters: $distanceMeters, ')
           ..write('brothersCount: $brothersCount, ')
           ..write('nazarenesCount: $nazarenesCount, ')
           ..write('brotherhoodName: $brotherhoodName, ')
           ..write('brotherhoodSlug: $brotherhoodSlug, ')
           ..write('brotherhoodColorHex: $brotherhoodColorHex, ')
-          ..write('routeArgb: $routeArgb')
+          ..write('brotherhoodHistory: $brotherhoodHistory, ')
+          ..write('brotherhoodHeaderImageUrl: $brotherhoodHeaderImageUrl, ')
+          ..write('brotherhoodDressCode: $brotherhoodDressCode, ')
+          ..write('brotherhoodFiguresJson: $brotherhoodFiguresJson, ')
+          ..write('brotherhoodPasosJson: $brotherhoodPasosJson, ')
+          ..write('brotherhoodShieldImageUrl: $brotherhoodShieldImageUrl, ')
+          ..write('routeArgb: $routeArgb, ')
+          ..write('routeKml: $routeKml')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     citySlug,
     yearValue,
     mode,
@@ -1791,13 +2540,22 @@ class DayProcessionEventEntry extends DataClass
     status,
     officialNote,
     passDurationMinutes,
+    stepsCount,
+    distanceMeters,
     brothersCount,
     nazarenesCount,
     brotherhoodName,
     brotherhoodSlug,
     brotherhoodColorHex,
+    brotherhoodHistory,
+    brotherhoodHeaderImageUrl,
+    brotherhoodDressCode,
+    brotherhoodFiguresJson,
+    brotherhoodPasosJson,
+    brotherhoodShieldImageUrl,
     routeArgb,
-  );
+    routeKml,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1810,12 +2568,21 @@ class DayProcessionEventEntry extends DataClass
           other.status == this.status &&
           other.officialNote == this.officialNote &&
           other.passDurationMinutes == this.passDurationMinutes &&
+          other.stepsCount == this.stepsCount &&
+          other.distanceMeters == this.distanceMeters &&
           other.brothersCount == this.brothersCount &&
           other.nazarenesCount == this.nazarenesCount &&
           other.brotherhoodName == this.brotherhoodName &&
           other.brotherhoodSlug == this.brotherhoodSlug &&
           other.brotherhoodColorHex == this.brotherhoodColorHex &&
-          other.routeArgb == this.routeArgb);
+          other.brotherhoodHistory == this.brotherhoodHistory &&
+          other.brotherhoodHeaderImageUrl == this.brotherhoodHeaderImageUrl &&
+          other.brotherhoodDressCode == this.brotherhoodDressCode &&
+          other.brotherhoodFiguresJson == this.brotherhoodFiguresJson &&
+          other.brotherhoodPasosJson == this.brotherhoodPasosJson &&
+          other.brotherhoodShieldImageUrl == this.brotherhoodShieldImageUrl &&
+          other.routeArgb == this.routeArgb &&
+          other.routeKml == this.routeKml);
 }
 
 class DayProcessionEventEntriesCompanion
@@ -1828,12 +2595,21 @@ class DayProcessionEventEntriesCompanion
   final Value<String> status;
   final Value<String> officialNote;
   final Value<int?> passDurationMinutes;
+  final Value<int?> stepsCount;
+  final Value<int?> distanceMeters;
   final Value<int?> brothersCount;
   final Value<int?> nazarenesCount;
   final Value<String> brotherhoodName;
   final Value<String> brotherhoodSlug;
   final Value<String> brotherhoodColorHex;
+  final Value<String?> brotherhoodHistory;
+  final Value<String?> brotherhoodHeaderImageUrl;
+  final Value<String?> brotherhoodDressCode;
+  final Value<String?> brotherhoodFiguresJson;
+  final Value<String?> brotherhoodPasosJson;
+  final Value<String?> brotherhoodShieldImageUrl;
   final Value<String?> routeArgb;
+  final Value<String?> routeKml;
   final Value<int> rowid;
   const DayProcessionEventEntriesCompanion({
     this.citySlug = const Value.absent(),
@@ -1844,12 +2620,21 @@ class DayProcessionEventEntriesCompanion
     this.status = const Value.absent(),
     this.officialNote = const Value.absent(),
     this.passDurationMinutes = const Value.absent(),
+    this.stepsCount = const Value.absent(),
+    this.distanceMeters = const Value.absent(),
     this.brothersCount = const Value.absent(),
     this.nazarenesCount = const Value.absent(),
     this.brotherhoodName = const Value.absent(),
     this.brotherhoodSlug = const Value.absent(),
     this.brotherhoodColorHex = const Value.absent(),
+    this.brotherhoodHistory = const Value.absent(),
+    this.brotherhoodHeaderImageUrl = const Value.absent(),
+    this.brotherhoodDressCode = const Value.absent(),
+    this.brotherhoodFiguresJson = const Value.absent(),
+    this.brotherhoodPasosJson = const Value.absent(),
+    this.brotherhoodShieldImageUrl = const Value.absent(),
     this.routeArgb = const Value.absent(),
+    this.routeKml = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DayProcessionEventEntriesCompanion.insert({
@@ -1861,12 +2646,21 @@ class DayProcessionEventEntriesCompanion
     required String status,
     required String officialNote,
     this.passDurationMinutes = const Value.absent(),
+    this.stepsCount = const Value.absent(),
+    this.distanceMeters = const Value.absent(),
     this.brothersCount = const Value.absent(),
     this.nazarenesCount = const Value.absent(),
     required String brotherhoodName,
     required String brotherhoodSlug,
     required String brotherhoodColorHex,
+    this.brotherhoodHistory = const Value.absent(),
+    this.brotherhoodHeaderImageUrl = const Value.absent(),
+    this.brotherhoodDressCode = const Value.absent(),
+    this.brotherhoodFiguresJson = const Value.absent(),
+    this.brotherhoodPasosJson = const Value.absent(),
+    this.brotherhoodShieldImageUrl = const Value.absent(),
     this.routeArgb = const Value.absent(),
+    this.routeKml = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : citySlug = Value(citySlug),
        yearValue = Value(yearValue),
@@ -1887,12 +2681,21 @@ class DayProcessionEventEntriesCompanion
     Expression<String>? status,
     Expression<String>? officialNote,
     Expression<int>? passDurationMinutes,
+    Expression<int>? stepsCount,
+    Expression<int>? distanceMeters,
     Expression<int>? brothersCount,
     Expression<int>? nazarenesCount,
     Expression<String>? brotherhoodName,
     Expression<String>? brotherhoodSlug,
     Expression<String>? brotherhoodColorHex,
+    Expression<String>? brotherhoodHistory,
+    Expression<String>? brotherhoodHeaderImageUrl,
+    Expression<String>? brotherhoodDressCode,
+    Expression<String>? brotherhoodFiguresJson,
+    Expression<String>? brotherhoodPasosJson,
+    Expression<String>? brotherhoodShieldImageUrl,
     Expression<String>? routeArgb,
+    Expression<String>? routeKml,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1905,13 +2708,27 @@ class DayProcessionEventEntriesCompanion
       if (officialNote != null) 'official_note': officialNote,
       if (passDurationMinutes != null)
         'pass_duration_minutes': passDurationMinutes,
+      if (stepsCount != null) 'steps_count': stepsCount,
+      if (distanceMeters != null) 'distance_meters': distanceMeters,
       if (brothersCount != null) 'brothers_count': brothersCount,
       if (nazarenesCount != null) 'nazarenes_count': nazarenesCount,
       if (brotherhoodName != null) 'brotherhood_name': brotherhoodName,
       if (brotherhoodSlug != null) 'brotherhood_slug': brotherhoodSlug,
       if (brotherhoodColorHex != null)
         'brotherhood_color_hex': brotherhoodColorHex,
+      if (brotherhoodHistory != null) 'brotherhood_history': brotherhoodHistory,
+      if (brotherhoodHeaderImageUrl != null)
+        'brotherhood_header_image_url': brotherhoodHeaderImageUrl,
+      if (brotherhoodDressCode != null)
+        'brotherhood_dress_code': brotherhoodDressCode,
+      if (brotherhoodFiguresJson != null)
+        'brotherhood_figures_json': brotherhoodFiguresJson,
+      if (brotherhoodPasosJson != null)
+        'brotherhood_pasos_json': brotherhoodPasosJson,
+      if (brotherhoodShieldImageUrl != null)
+        'brotherhood_shield_image_url': brotherhoodShieldImageUrl,
       if (routeArgb != null) 'route_argb': routeArgb,
+      if (routeKml != null) 'route_kml': routeKml,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1925,12 +2742,21 @@ class DayProcessionEventEntriesCompanion
     Value<String>? status,
     Value<String>? officialNote,
     Value<int?>? passDurationMinutes,
+    Value<int?>? stepsCount,
+    Value<int?>? distanceMeters,
     Value<int?>? brothersCount,
     Value<int?>? nazarenesCount,
     Value<String>? brotherhoodName,
     Value<String>? brotherhoodSlug,
     Value<String>? brotherhoodColorHex,
+    Value<String?>? brotherhoodHistory,
+    Value<String?>? brotherhoodHeaderImageUrl,
+    Value<String?>? brotherhoodDressCode,
+    Value<String?>? brotherhoodFiguresJson,
+    Value<String?>? brotherhoodPasosJson,
+    Value<String?>? brotherhoodShieldImageUrl,
     Value<String?>? routeArgb,
+    Value<String?>? routeKml,
     Value<int>? rowid,
   }) {
     return DayProcessionEventEntriesCompanion(
@@ -1942,12 +2768,24 @@ class DayProcessionEventEntriesCompanion
       status: status ?? this.status,
       officialNote: officialNote ?? this.officialNote,
       passDurationMinutes: passDurationMinutes ?? this.passDurationMinutes,
+      stepsCount: stepsCount ?? this.stepsCount,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
       brothersCount: brothersCount ?? this.brothersCount,
       nazarenesCount: nazarenesCount ?? this.nazarenesCount,
       brotherhoodName: brotherhoodName ?? this.brotherhoodName,
       brotherhoodSlug: brotherhoodSlug ?? this.brotherhoodSlug,
       brotherhoodColorHex: brotherhoodColorHex ?? this.brotherhoodColorHex,
+      brotherhoodHistory: brotherhoodHistory ?? this.brotherhoodHistory,
+      brotherhoodHeaderImageUrl:
+          brotherhoodHeaderImageUrl ?? this.brotherhoodHeaderImageUrl,
+      brotherhoodDressCode: brotherhoodDressCode ?? this.brotherhoodDressCode,
+      brotherhoodFiguresJson:
+          brotherhoodFiguresJson ?? this.brotherhoodFiguresJson,
+      brotherhoodPasosJson: brotherhoodPasosJson ?? this.brotherhoodPasosJson,
+      brotherhoodShieldImageUrl:
+          brotherhoodShieldImageUrl ?? this.brotherhoodShieldImageUrl,
       routeArgb: routeArgb ?? this.routeArgb,
+      routeKml: routeKml ?? this.routeKml,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1979,6 +2817,12 @@ class DayProcessionEventEntriesCompanion
     if (passDurationMinutes.present) {
       map['pass_duration_minutes'] = Variable<int>(passDurationMinutes.value);
     }
+    if (stepsCount.present) {
+      map['steps_count'] = Variable<int>(stepsCount.value);
+    }
+    if (distanceMeters.present) {
+      map['distance_meters'] = Variable<int>(distanceMeters.value);
+    }
     if (brothersCount.present) {
       map['brothers_count'] = Variable<int>(brothersCount.value);
     }
@@ -1996,8 +2840,39 @@ class DayProcessionEventEntriesCompanion
         brotherhoodColorHex.value,
       );
     }
+    if (brotherhoodHistory.present) {
+      map['brotherhood_history'] = Variable<String>(brotherhoodHistory.value);
+    }
+    if (brotherhoodHeaderImageUrl.present) {
+      map['brotherhood_header_image_url'] = Variable<String>(
+        brotherhoodHeaderImageUrl.value,
+      );
+    }
+    if (brotherhoodDressCode.present) {
+      map['brotherhood_dress_code'] = Variable<String>(
+        brotherhoodDressCode.value,
+      );
+    }
+    if (brotherhoodFiguresJson.present) {
+      map['brotherhood_figures_json'] = Variable<String>(
+        brotherhoodFiguresJson.value,
+      );
+    }
+    if (brotherhoodPasosJson.present) {
+      map['brotherhood_pasos_json'] = Variable<String>(
+        brotherhoodPasosJson.value,
+      );
+    }
+    if (brotherhoodShieldImageUrl.present) {
+      map['brotherhood_shield_image_url'] = Variable<String>(
+        brotherhoodShieldImageUrl.value,
+      );
+    }
     if (routeArgb.present) {
       map['route_argb'] = Variable<String>(routeArgb.value);
+    }
+    if (routeKml.present) {
+      map['route_kml'] = Variable<String>(routeKml.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -2016,12 +2891,21 @@ class DayProcessionEventEntriesCompanion
           ..write('status: $status, ')
           ..write('officialNote: $officialNote, ')
           ..write('passDurationMinutes: $passDurationMinutes, ')
+          ..write('stepsCount: $stepsCount, ')
+          ..write('distanceMeters: $distanceMeters, ')
           ..write('brothersCount: $brothersCount, ')
           ..write('nazarenesCount: $nazarenesCount, ')
           ..write('brotherhoodName: $brotherhoodName, ')
           ..write('brotherhoodSlug: $brotherhoodSlug, ')
           ..write('brotherhoodColorHex: $brotherhoodColorHex, ')
+          ..write('brotherhoodHistory: $brotherhoodHistory, ')
+          ..write('brotherhoodHeaderImageUrl: $brotherhoodHeaderImageUrl, ')
+          ..write('brotherhoodDressCode: $brotherhoodDressCode, ')
+          ..write('brotherhoodFiguresJson: $brotherhoodFiguresJson, ')
+          ..write('brotherhoodPasosJson: $brotherhoodPasosJson, ')
+          ..write('brotherhoodShieldImageUrl: $brotherhoodShieldImageUrl, ')
           ..write('routeArgb: $routeArgb, ')
+          ..write('routeKml: $routeKml, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4435,7 +5319,13 @@ typedef $$DaysTableCreateCompanionBuilder =
       required String slug,
       required String name,
       Value<DateTime?> startsAt,
+      Value<DateTime?> liturgicalDate,
       required int processionEventsCount,
+      Value<String?> weatherIconCode,
+      Value<String?> weatherConditionLabel,
+      Value<double?> weatherTempMinC,
+      Value<double?> weatherTempMaxC,
+      Value<String?> weatherHourlyJson,
       Value<int> rowid,
     });
 typedef $$DaysTableUpdateCompanionBuilder =
@@ -4446,7 +5336,13 @@ typedef $$DaysTableUpdateCompanionBuilder =
       Value<String> slug,
       Value<String> name,
       Value<DateTime?> startsAt,
+      Value<DateTime?> liturgicalDate,
       Value<int> processionEventsCount,
+      Value<String?> weatherIconCode,
+      Value<String?> weatherConditionLabel,
+      Value<double?> weatherTempMinC,
+      Value<double?> weatherTempMaxC,
+      Value<String?> weatherHourlyJson,
       Value<int> rowid,
     });
 
@@ -4488,8 +5384,38 @@ class $$DaysTableFilterComposer extends Composer<_$AppDatabase, $DaysTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get liturgicalDate => $composableBuilder(
+    column: $table.liturgicalDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get processionEventsCount => $composableBuilder(
     column: $table.processionEventsCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get weatherIconCode => $composableBuilder(
+    column: $table.weatherIconCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get weatherConditionLabel => $composableBuilder(
+    column: $table.weatherConditionLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weatherTempMinC => $composableBuilder(
+    column: $table.weatherTempMinC,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weatherTempMaxC => $composableBuilder(
+    column: $table.weatherTempMaxC,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get weatherHourlyJson => $composableBuilder(
+    column: $table.weatherHourlyJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4532,8 +5458,38 @@ class $$DaysTableOrderingComposer extends Composer<_$AppDatabase, $DaysTable> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get liturgicalDate => $composableBuilder(
+    column: $table.liturgicalDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get processionEventsCount => $composableBuilder(
     column: $table.processionEventsCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get weatherIconCode => $composableBuilder(
+    column: $table.weatherIconCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get weatherConditionLabel => $composableBuilder(
+    column: $table.weatherConditionLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weatherTempMinC => $composableBuilder(
+    column: $table.weatherTempMinC,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weatherTempMaxC => $composableBuilder(
+    column: $table.weatherTempMaxC,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get weatherHourlyJson => $composableBuilder(
+    column: $table.weatherHourlyJson,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -4565,8 +5521,38 @@ class $$DaysTableAnnotationComposer
   GeneratedColumn<DateTime> get startsAt =>
       $composableBuilder(column: $table.startsAt, builder: (column) => column);
 
+  GeneratedColumn<DateTime> get liturgicalDate => $composableBuilder(
+    column: $table.liturgicalDate,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get processionEventsCount => $composableBuilder(
     column: $table.processionEventsCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get weatherIconCode => $composableBuilder(
+    column: $table.weatherIconCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get weatherConditionLabel => $composableBuilder(
+    column: $table.weatherConditionLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get weatherTempMinC => $composableBuilder(
+    column: $table.weatherTempMinC,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get weatherTempMaxC => $composableBuilder(
+    column: $table.weatherTempMaxC,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get weatherHourlyJson => $composableBuilder(
+    column: $table.weatherHourlyJson,
     builder: (column) => column,
   );
 }
@@ -4605,7 +5591,13 @@ class $$DaysTableTableManager
                 Value<String> slug = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<DateTime?> startsAt = const Value.absent(),
+                Value<DateTime?> liturgicalDate = const Value.absent(),
                 Value<int> processionEventsCount = const Value.absent(),
+                Value<String?> weatherIconCode = const Value.absent(),
+                Value<String?> weatherConditionLabel = const Value.absent(),
+                Value<double?> weatherTempMinC = const Value.absent(),
+                Value<double?> weatherTempMaxC = const Value.absent(),
+                Value<String?> weatherHourlyJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DaysCompanion(
                 citySlug: citySlug,
@@ -4614,7 +5606,13 @@ class $$DaysTableTableManager
                 slug: slug,
                 name: name,
                 startsAt: startsAt,
+                liturgicalDate: liturgicalDate,
                 processionEventsCount: processionEventsCount,
+                weatherIconCode: weatherIconCode,
+                weatherConditionLabel: weatherConditionLabel,
+                weatherTempMinC: weatherTempMinC,
+                weatherTempMaxC: weatherTempMaxC,
+                weatherHourlyJson: weatherHourlyJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4625,7 +5623,13 @@ class $$DaysTableTableManager
                 required String slug,
                 required String name,
                 Value<DateTime?> startsAt = const Value.absent(),
+                Value<DateTime?> liturgicalDate = const Value.absent(),
                 required int processionEventsCount,
+                Value<String?> weatherIconCode = const Value.absent(),
+                Value<String?> weatherConditionLabel = const Value.absent(),
+                Value<double?> weatherTempMinC = const Value.absent(),
+                Value<double?> weatherTempMaxC = const Value.absent(),
+                Value<String?> weatherHourlyJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DaysCompanion.insert(
                 citySlug: citySlug,
@@ -4634,7 +5638,13 @@ class $$DaysTableTableManager
                 slug: slug,
                 name: name,
                 startsAt: startsAt,
+                liturgicalDate: liturgicalDate,
                 processionEventsCount: processionEventsCount,
+                weatherIconCode: weatherIconCode,
+                weatherConditionLabel: weatherConditionLabel,
+                weatherTempMinC: weatherTempMinC,
+                weatherTempMaxC: weatherTempMaxC,
+                weatherHourlyJson: weatherHourlyJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4896,12 +5906,21 @@ typedef $$DayProcessionEventEntriesTableCreateCompanionBuilder =
       required String status,
       required String officialNote,
       Value<int?> passDurationMinutes,
+      Value<int?> stepsCount,
+      Value<int?> distanceMeters,
       Value<int?> brothersCount,
       Value<int?> nazarenesCount,
       required String brotherhoodName,
       required String brotherhoodSlug,
       required String brotherhoodColorHex,
+      Value<String?> brotherhoodHistory,
+      Value<String?> brotherhoodHeaderImageUrl,
+      Value<String?> brotherhoodDressCode,
+      Value<String?> brotherhoodFiguresJson,
+      Value<String?> brotherhoodPasosJson,
+      Value<String?> brotherhoodShieldImageUrl,
       Value<String?> routeArgb,
+      Value<String?> routeKml,
       Value<int> rowid,
     });
 typedef $$DayProcessionEventEntriesTableUpdateCompanionBuilder =
@@ -4914,12 +5933,21 @@ typedef $$DayProcessionEventEntriesTableUpdateCompanionBuilder =
       Value<String> status,
       Value<String> officialNote,
       Value<int?> passDurationMinutes,
+      Value<int?> stepsCount,
+      Value<int?> distanceMeters,
       Value<int?> brothersCount,
       Value<int?> nazarenesCount,
       Value<String> brotherhoodName,
       Value<String> brotherhoodSlug,
       Value<String> brotherhoodColorHex,
+      Value<String?> brotherhoodHistory,
+      Value<String?> brotherhoodHeaderImageUrl,
+      Value<String?> brotherhoodDressCode,
+      Value<String?> brotherhoodFiguresJson,
+      Value<String?> brotherhoodPasosJson,
+      Value<String?> brotherhoodShieldImageUrl,
       Value<String?> routeArgb,
+      Value<String?> routeKml,
       Value<int> rowid,
     });
 
@@ -4972,6 +6000,16 @@ class $$DayProcessionEventEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get stepsCount => $composableBuilder(
+    column: $table.stepsCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get distanceMeters => $composableBuilder(
+    column: $table.distanceMeters,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get brothersCount => $composableBuilder(
     column: $table.brothersCount,
     builder: (column) => ColumnFilters(column),
@@ -4997,8 +6035,43 @@ class $$DayProcessionEventEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get brotherhoodHistory => $composableBuilder(
+    column: $table.brotherhoodHistory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get brotherhoodHeaderImageUrl => $composableBuilder(
+    column: $table.brotherhoodHeaderImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get brotherhoodDressCode => $composableBuilder(
+    column: $table.brotherhoodDressCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get brotherhoodFiguresJson => $composableBuilder(
+    column: $table.brotherhoodFiguresJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get brotherhoodPasosJson => $composableBuilder(
+    column: $table.brotherhoodPasosJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get brotherhoodShieldImageUrl => $composableBuilder(
+    column: $table.brotherhoodShieldImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get routeArgb => $composableBuilder(
     column: $table.routeArgb,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get routeKml => $composableBuilder(
+    column: $table.routeKml,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5052,6 +6125,16 @@ class $$DayProcessionEventEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get stepsCount => $composableBuilder(
+    column: $table.stepsCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get distanceMeters => $composableBuilder(
+    column: $table.distanceMeters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get brothersCount => $composableBuilder(
     column: $table.brothersCount,
     builder: (column) => ColumnOrderings(column),
@@ -5077,8 +6160,43 @@ class $$DayProcessionEventEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get brotherhoodHistory => $composableBuilder(
+    column: $table.brotherhoodHistory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get brotherhoodHeaderImageUrl => $composableBuilder(
+    column: $table.brotherhoodHeaderImageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get brotherhoodDressCode => $composableBuilder(
+    column: $table.brotherhoodDressCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get brotherhoodFiguresJson => $composableBuilder(
+    column: $table.brotherhoodFiguresJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get brotherhoodPasosJson => $composableBuilder(
+    column: $table.brotherhoodPasosJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get brotherhoodShieldImageUrl => $composableBuilder(
+    column: $table.brotherhoodShieldImageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get routeArgb => $composableBuilder(
     column: $table.routeArgb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get routeKml => $composableBuilder(
+    column: $table.routeKml,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -5120,6 +6238,16 @@ class $$DayProcessionEventEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get stepsCount => $composableBuilder(
+    column: $table.stepsCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get distanceMeters => $composableBuilder(
+    column: $table.distanceMeters,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get brothersCount => $composableBuilder(
     column: $table.brothersCount,
     builder: (column) => column,
@@ -5145,8 +6273,41 @@ class $$DayProcessionEventEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get brotherhoodHistory => $composableBuilder(
+    column: $table.brotherhoodHistory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get brotherhoodHeaderImageUrl => $composableBuilder(
+    column: $table.brotherhoodHeaderImageUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get brotherhoodDressCode => $composableBuilder(
+    column: $table.brotherhoodDressCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get brotherhoodFiguresJson => $composableBuilder(
+    column: $table.brotherhoodFiguresJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get brotherhoodPasosJson => $composableBuilder(
+    column: $table.brotherhoodPasosJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get brotherhoodShieldImageUrl => $composableBuilder(
+    column: $table.brotherhoodShieldImageUrl,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get routeArgb =>
       $composableBuilder(column: $table.routeArgb, builder: (column) => column);
+
+  GeneratedColumn<String> get routeKml =>
+      $composableBuilder(column: $table.routeKml, builder: (column) => column);
 }
 
 class $$DayProcessionEventEntriesTableTableManager
@@ -5203,12 +6364,21 @@ class $$DayProcessionEventEntriesTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<String> officialNote = const Value.absent(),
                 Value<int?> passDurationMinutes = const Value.absent(),
+                Value<int?> stepsCount = const Value.absent(),
+                Value<int?> distanceMeters = const Value.absent(),
                 Value<int?> brothersCount = const Value.absent(),
                 Value<int?> nazarenesCount = const Value.absent(),
                 Value<String> brotherhoodName = const Value.absent(),
                 Value<String> brotherhoodSlug = const Value.absent(),
                 Value<String> brotherhoodColorHex = const Value.absent(),
+                Value<String?> brotherhoodHistory = const Value.absent(),
+                Value<String?> brotherhoodHeaderImageUrl = const Value.absent(),
+                Value<String?> brotherhoodDressCode = const Value.absent(),
+                Value<String?> brotherhoodFiguresJson = const Value.absent(),
+                Value<String?> brotherhoodPasosJson = const Value.absent(),
+                Value<String?> brotherhoodShieldImageUrl = const Value.absent(),
                 Value<String?> routeArgb = const Value.absent(),
+                Value<String?> routeKml = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DayProcessionEventEntriesCompanion(
                 citySlug: citySlug,
@@ -5219,12 +6389,21 @@ class $$DayProcessionEventEntriesTableTableManager
                 status: status,
                 officialNote: officialNote,
                 passDurationMinutes: passDurationMinutes,
+                stepsCount: stepsCount,
+                distanceMeters: distanceMeters,
                 brothersCount: brothersCount,
                 nazarenesCount: nazarenesCount,
                 brotherhoodName: brotherhoodName,
                 brotherhoodSlug: brotherhoodSlug,
                 brotherhoodColorHex: brotherhoodColorHex,
+                brotherhoodHistory: brotherhoodHistory,
+                brotherhoodHeaderImageUrl: brotherhoodHeaderImageUrl,
+                brotherhoodDressCode: brotherhoodDressCode,
+                brotherhoodFiguresJson: brotherhoodFiguresJson,
+                brotherhoodPasosJson: brotherhoodPasosJson,
+                brotherhoodShieldImageUrl: brotherhoodShieldImageUrl,
                 routeArgb: routeArgb,
+                routeKml: routeKml,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5237,12 +6416,21 @@ class $$DayProcessionEventEntriesTableTableManager
                 required String status,
                 required String officialNote,
                 Value<int?> passDurationMinutes = const Value.absent(),
+                Value<int?> stepsCount = const Value.absent(),
+                Value<int?> distanceMeters = const Value.absent(),
                 Value<int?> brothersCount = const Value.absent(),
                 Value<int?> nazarenesCount = const Value.absent(),
                 required String brotherhoodName,
                 required String brotherhoodSlug,
                 required String brotherhoodColorHex,
+                Value<String?> brotherhoodHistory = const Value.absent(),
+                Value<String?> brotherhoodHeaderImageUrl = const Value.absent(),
+                Value<String?> brotherhoodDressCode = const Value.absent(),
+                Value<String?> brotherhoodFiguresJson = const Value.absent(),
+                Value<String?> brotherhoodPasosJson = const Value.absent(),
+                Value<String?> brotherhoodShieldImageUrl = const Value.absent(),
                 Value<String?> routeArgb = const Value.absent(),
+                Value<String?> routeKml = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DayProcessionEventEntriesCompanion.insert(
                 citySlug: citySlug,
@@ -5253,12 +6441,21 @@ class $$DayProcessionEventEntriesTableTableManager
                 status: status,
                 officialNote: officialNote,
                 passDurationMinutes: passDurationMinutes,
+                stepsCount: stepsCount,
+                distanceMeters: distanceMeters,
                 brothersCount: brothersCount,
                 nazarenesCount: nazarenesCount,
                 brotherhoodName: brotherhoodName,
                 brotherhoodSlug: brotherhoodSlug,
                 brotherhoodColorHex: brotherhoodColorHex,
+                brotherhoodHistory: brotherhoodHistory,
+                brotherhoodHeaderImageUrl: brotherhoodHeaderImageUrl,
+                brotherhoodDressCode: brotherhoodDressCode,
+                brotherhoodFiguresJson: brotherhoodFiguresJson,
+                brotherhoodPasosJson: brotherhoodPasosJson,
+                brotherhoodShieldImageUrl: brotherhoodShieldImageUrl,
                 routeArgb: routeArgb,
+                routeKml: routeKml,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

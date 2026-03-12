@@ -97,6 +97,28 @@ flutter:
           weight: 800
         - asset: assets/fonts/Cinzel-Black.ttf
           weight: 900
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Lora-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Lora-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Lora-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Lora-Italic.ttf
+          style: italic
+          weight: 400
+        - asset: assets/fonts/Lora-MediumItalic.ttf
+          style: italic
+          weight: 500
+        - asset: assets/fonts/Lora-SemiBoldItalic.ttf
+          style: italic
+          weight: 600
+        - asset: assets/fonts/Lora-BoldItalic.ttf
+          style: italic
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -230,6 +230,7 @@ class _TabScreen extends StatelessWidget {
                   slug: 'domingo-ramos',
                   name: 'Domingo de Ramos',
                   startsAt: null,
+                  liturgicalDate: null,
                   processionEventsCount: 8,
                 ),
               );
@@ -298,6 +299,7 @@ class _ShellJornadasScreen extends StatelessWidget {
                   slug: 'domingo-ramos',
                   name: 'Domingo de Ramos',
                   startsAt: null,
+                  liturgicalDate: null,
                   processionEventsCount: 8,
                 ),
               );

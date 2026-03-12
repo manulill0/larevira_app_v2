@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -32,8 +34,12 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
   MapboxMap? _map;
   PolylineAnnotationManager? _polylineManager;
   CircleAnnotationManager? _circleManager;
+  PointAnnotationManager? _pointManager;
   Offset? _calloutOffset;
   late DateTime _selectedTime;
+  late List<_KmlLinePlacemark> _kmlLinePlacemarks;
+  late List<_KmlPointPlacemark> _kmlPointPlacemarks;
+  Uint8List? _houseIconBytes;
 
   SchedulePoint? get _currentPoint =>
       _pointForMoment(widget.event.schedulePoints, _selectedTime);
@@ -48,26 +54,79 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
       )
       .toList(growable: false);
 
+  List<MapPoint> get _effectiveRouteMapPoints {
+    if (_kmlLinePlacemarks.isNotEmpty) {
+      return _kmlLinePlacemarks
+          .expand((placemark) => placemark.points)
+          .toList(growable: false);
+    }
+    return _routeMapPoints;
+  }
+
+  List<_KmlPointPlacemark> get _effectiveHousePlacemarks {
+    if (_kmlPointPlacemarks.isNotEmpty) {
+      return _kmlPointPlacemarks;
+    }
+
+    if (_effectiveRouteMapPoints.length < 2) {
+      return const [];
+    }
+
+    return [
+      _KmlPointPlacemark(
+        point: _effectiveRouteMapPoints.first,
+        label: 'Inicio',
+      ),
+      _KmlPointPlacemark(
+        point: _effectiveRouteMapPoints.last,
+        label: 'Final',
+      ),
+    ];
+  }
+
   List<MapPoint> get _focusPoints {
     final point = _currentPoint;
+    final housePoints = _effectiveHousePlacemarks
+        .map((placemark) => placemark.point)
+        .toList(growable: false);
     if (point?.hasLocation == true) {
       return [
-        ..._routeMapPoints,
+        ..._effectiveRouteMapPoints,
+        ...housePoints,
         MapPoint(latitude: point!.latitude!, longitude: point.longitude!),
       ];
     }
 
-    return _routeMapPoints;
+    return [
+      ..._effectiveRouteMapPoints,
+      ...housePoints,
+    ];
   }
 
   @override
   void initState() {
     super.initState();
+    _hydrateKmlGeometry();
     _selectedTime = _clampToRange(
       widget.initialSelectedTime,
       min: widget.minSelectableTime,
       max: widget.maxSelectableTime,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant SchedulePointMapPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.event.routeKml != widget.event.routeKml) {
+      _hydrateKmlGeometry();
+      _syncAnnotations();
+    }
+  }
+
+  void _hydrateKmlGeometry() {
+    final parsed = _parseKml(widget.event.routeKml);
+    _kmlLinePlacemarks = parsed.lines;
+    _kmlPointPlacemarks = parsed.points;
   }
 
   Future<void> _centerOnCurrentPoint() async {
@@ -99,31 +158,71 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
       return;
     }
 
-    await easeToPoints(map, _routeMapPoints, fallbackZoom: 15);
+    await easeToPoints(map, _effectiveRouteMapPoints, fallbackZoom: 15);
   }
 
   Future<void> _syncAnnotations() async {
     final polylineManager = _polylineManager;
     final circleManager = _circleManager;
-    if (polylineManager == null || circleManager == null) {
+    final pointManager = _pointManager;
+    if (polylineManager == null || circleManager == null || pointManager == null) {
       return;
     }
 
     await polylineManager.deleteAll();
     await circleManager.deleteAll();
+    await pointManager.deleteAll();
 
     final accent = _parseColor(widget.colorHex) ?? const Color(0xFF8B1E3F);
 
-    if (_routeMapPoints.length >= 2) {
+    if (_kmlLinePlacemarks.isNotEmpty) {
+      for (final placemark in _kmlLinePlacemarks) {
+        if (placemark.points.length < 2) {
+          continue;
+        }
+        await polylineManager.create(
+          PolylineAnnotationOptions(
+            geometry: LineString(
+              coordinates: placemark.points
+                  .map((point) => point.toPoint().coordinates)
+                  .toList(growable: false),
+            ),
+            lineColor: (placemark.color ?? accent).toARGB32(),
+            lineWidth: 5,
+          ),
+        );
+      }
+    } else if (_effectiveRouteMapPoints.length >= 2) {
       await polylineManager.create(
         PolylineAnnotationOptions(
           geometry: LineString(
-            coordinates: _routeMapPoints
+            coordinates: _effectiveRouteMapPoints
                 .map((point) => point.toPoint().coordinates)
                 .toList(growable: false),
           ),
           lineColor: accent.toARGB32(),
           lineWidth: 5,
+        ),
+      );
+    }
+
+    final houseIcon = _houseIconBytes ?? await _buildHouseIconBytes(accent);
+    _houseIconBytes = houseIcon;
+
+    for (final placemark in _effectiveHousePlacemarks) {
+      await pointManager.create(
+        PointAnnotationOptions(
+          geometry: placemark.point.toPoint(),
+          image: houseIcon,
+          iconSize: 1.0,
+          textField: placemark.label,
+          textColor: accent.toARGB32(),
+          textHaloColor: Colors.white.toARGB32(),
+          textHaloWidth: 1.5,
+          textSize: 10,
+          textAnchor: TextAnchor.TOP,
+          textOffset: const [0.0, 1.4],
+          symbolSortKey: 3000,
         ),
       );
     }
@@ -151,6 +250,10 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
         .createPolylineAnnotationManager();
     _circleManager = await mapboxMap.annotations
         .createCircleAnnotationManager();
+    _pointManager = await mapboxMap.annotations.createPointAnnotationManager();
+    _houseIconBytes ??= await _buildHouseIconBytes(
+      _parseColor(widget.colorHex) ?? const Color(0xFF8B1E3F),
+    );
     await _syncAnnotations();
     await _refreshCalloutPosition();
   }
@@ -398,6 +501,257 @@ class _SchedulePointMapPageState extends State<SchedulePointMapPage> {
       ),
     );
   }
+}
+
+class _ParsedKmlGeometry {
+  const _ParsedKmlGeometry({
+    required this.lines,
+    required this.points,
+  });
+
+  final List<_KmlLinePlacemark> lines;
+  final List<_KmlPointPlacemark> points;
+}
+
+class _KmlLinePlacemark {
+  const _KmlLinePlacemark({
+    required this.points,
+    this.color,
+  });
+
+  final List<MapPoint> points;
+  final Color? color;
+}
+
+class _KmlPointPlacemark {
+  const _KmlPointPlacemark({
+    required this.point,
+    required this.label,
+  });
+
+  final MapPoint point;
+  final String label;
+}
+
+_ParsedKmlGeometry _parseKml(String? rawKml) {
+  final source = rawKml?.trim() ?? '';
+  if (source.isEmpty) {
+    return const _ParsedKmlGeometry(lines: [], points: []);
+  }
+
+  final styleColorById = <String, Color>{};
+  final styleMapToStyleId = <String, String>{};
+  final styleMatches = RegExp(
+    r'<Style[^>]*id="([^"]+)"[^>]*>(.*?)</Style>',
+    caseSensitive: false,
+    dotAll: true,
+  ).allMatches(source);
+  for (final match in styleMatches) {
+    final id = match.group(1)?.trim();
+    final body = match.group(2) ?? '';
+    final colorMatch = RegExp(
+      r'<LineStyle[^>]*>.*?<color[^>]*>\s*([0-9a-fA-F]{8})\s*</color>.*?</LineStyle>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    if (id == null || id.isEmpty || colorMatch == null) {
+      continue;
+    }
+    final color = _parseKmlColor(colorMatch.group(1)!);
+    if (color != null) {
+      styleColorById[id] = color;
+    }
+  }
+
+  final styleMapMatches = RegExp(
+    r'<StyleMap[^>]*id="([^"]+)"[^>]*>(.*?)</StyleMap>',
+    caseSensitive: false,
+    dotAll: true,
+  ).allMatches(source);
+  for (final match in styleMapMatches) {
+    final styleMapId = match.group(1)?.trim();
+    final body = match.group(2) ?? '';
+    if (styleMapId == null || styleMapId.isEmpty) {
+      continue;
+    }
+    final normalPair = RegExp(
+      r'<Pair[^>]*>.*?<key>\s*normal\s*</key>.*?<styleUrl>\s*#?([^<\s]+)\s*</styleUrl>.*?</Pair>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    final resolved = normalPair?.group(1)?.trim();
+    if (resolved != null && resolved.isNotEmpty) {
+      styleMapToStyleId[styleMapId] = resolved;
+    }
+  }
+
+  final lines = <_KmlLinePlacemark>[];
+  final points = <_KmlPointPlacemark>[];
+  final placemarkMatches = RegExp(
+    r'<Placemark[^>]*>(.*?)</Placemark>',
+    caseSensitive: false,
+    dotAll: true,
+  ).allMatches(source);
+
+  for (final match in placemarkMatches) {
+    final body = match.group(1) ?? '';
+    final name = _extractXmlTag(body, 'name') ?? '';
+    final styleUrl =
+        _extractXmlTag(body, 'styleUrl')?.replaceAll('#', '').trim();
+    final resolvedStyleId = styleMapToStyleId[styleUrl] ?? styleUrl;
+    final inlineColorMatch = RegExp(
+      r'<LineStyle[^>]*>.*?<color[^>]*>\s*([0-9a-fA-F]{8})\s*</color>.*?</LineStyle>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    final color =
+        inlineColorMatch != null
+            ? _parseKmlColor(inlineColorMatch.group(1)!)
+            : styleColorById[resolvedStyleId] ??
+                _parseColorFromStyleUrl(resolvedStyleId);
+
+    final lineCoordinates = RegExp(
+      r'<LineString[^>]*>.*?<coordinates[^>]*>\s*([^<]+?)\s*</coordinates>.*?</LineString>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    if (lineCoordinates != null) {
+      final linePoints = _parseCoordinateTuples(lineCoordinates.group(1)!);
+      if (linePoints.length >= 2) {
+        lines.add(_KmlLinePlacemark(points: linePoints, color: color));
+      }
+    }
+
+    final pointCoordinates = RegExp(
+      r'<Point[^>]*>.*?<coordinates[^>]*>\s*([^<]+?)\s*</coordinates>.*?</Point>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    if (pointCoordinates != null) {
+      final pointList = _parseCoordinateTuples(pointCoordinates.group(1)!);
+      if (pointList.isNotEmpty) {
+        points.add(
+          _KmlPointPlacemark(
+            point: pointList.first,
+            label: name.isEmpty ? 'Punto KML' : name,
+          ),
+        );
+      }
+    }
+  }
+
+  return _ParsedKmlGeometry(lines: lines, points: points);
+}
+
+Color? _parseKmlColor(String kmlColor) {
+  final value = kmlColor.trim();
+  if (value.length != 8) {
+    return null;
+  }
+  final aa = value.substring(0, 2);
+  final bb = value.substring(2, 4);
+  final gg = value.substring(4, 6);
+  final rr = value.substring(6, 8);
+  final argbHex = '$aa$rr$gg$bb';
+  final parsed = int.tryParse(argbHex, radix: 16);
+  if (parsed == null) {
+    return null;
+  }
+  return Color(parsed);
+}
+
+Color? _parseColorFromStyleUrl(String? styleUrl) {
+  if (styleUrl == null || styleUrl.isEmpty) {
+    return null;
+  }
+
+  final lineMatch = RegExp(
+    r'line-([0-9a-fA-F]{6})-\d+',
+    caseSensitive: false,
+  ).firstMatch(styleUrl);
+  if (lineMatch != null) {
+    final hex = lineMatch.group(1)!;
+    final parsed = int.tryParse(hex, radix: 16);
+    if (parsed != null) {
+      return Color(0xFF000000 | parsed);
+    }
+  }
+
+  final iconMatch = RegExp(
+    r'icon-\d+-([0-9a-fA-F]{6})',
+    caseSensitive: false,
+  ).firstMatch(styleUrl);
+  if (iconMatch != null) {
+    final hex = iconMatch.group(1)!;
+    final parsed = int.tryParse(hex, radix: 16);
+    if (parsed != null) {
+      return Color(0xFF000000 | parsed);
+    }
+  }
+
+  return null;
+}
+
+Future<Uint8List> _buildHouseIconBytes(Color color) async {
+  const size = 48.0;
+  final recorder = ui.PictureRecorder();
+  final canvas = ui.Canvas(recorder);
+  final fill = ui.Paint()..color = color;
+  final stroke = ui.Paint()
+    ..color = const Color(0xFFFFFFFF)
+    ..style = ui.PaintingStyle.stroke
+    ..strokeWidth = 2.0;
+
+  final roof = ui.Path()
+    ..moveTo(size * 0.12, size * 0.52)
+    ..lineTo(size * 0.50, size * 0.18)
+    ..lineTo(size * 0.88, size * 0.52)
+    ..close();
+  final body = ui.RRect.fromRectAndRadius(
+    ui.Rect.fromLTWH(size * 0.24, size * 0.50, size * 0.52, size * 0.32),
+    const ui.Radius.circular(4),
+  );
+  final door = ui.RRect.fromRectAndRadius(
+    ui.Rect.fromLTWH(size * 0.45, size * 0.62, size * 0.12, size * 0.20),
+    const ui.Radius.circular(2),
+  );
+
+  canvas.drawPath(roof, fill);
+  canvas.drawRRect(body, fill);
+  canvas.drawRRect(door, ui.Paint()..color = const Color(0xFFFFFFFF));
+  canvas.drawPath(roof, stroke);
+  canvas.drawRRect(body, stroke);
+
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(size.toInt(), size.toInt());
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  return bytes!.buffer.asUint8List();
+}
+
+String? _extractXmlTag(String source, String tag) {
+  final match = RegExp(
+    '<$tag[^>]*>\\s*([^<]+?)\\s*</$tag>',
+    caseSensitive: false,
+    dotAll: true,
+  ).firstMatch(source);
+  return match?.group(1)?.trim();
+}
+
+List<MapPoint> _parseCoordinateTuples(String rawCoordinates) {
+  final points = <MapPoint>[];
+  for (final tuple in rawCoordinates.trim().split(RegExp(r'\s+'))) {
+    final values = tuple.split(',');
+    if (values.length < 2) {
+      continue;
+    }
+    final longitude = double.tryParse(values[0].trim());
+    final latitude = double.tryParse(values[1].trim());
+    if (latitude == null || longitude == null) {
+      continue;
+    }
+    points.add(MapPoint(latitude: latitude, longitude: longitude));
+  }
+  return points;
 }
 
 SchedulePoint? _pointForMoment(

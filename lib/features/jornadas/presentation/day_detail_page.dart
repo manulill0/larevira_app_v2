@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 import '../../../core/config/app_instance_controller.dart';
 import '../../../core/config/debug_flags.dart';
+import '../../../core/media/private_image_cache.dart';
 import '../../../core/maps/mapbox_map_helpers.dart';
 import '../../../core/models/day_detail.dart';
 import '../../../core/models/day_index_item.dart';
@@ -778,6 +781,7 @@ class _MapSectionState extends State<_MapSection> {
   int _syncGeneration = 0;
   bool _showLegend = false;
   static const Color _officialCourseFallbackColor = Color(0xFFFFA500);
+  CameraOptions? _initialCameraOptions;
 
   List<MapPoint> _routeMapPoints(DayProcessionEvent event) {
     return event.routePoints
@@ -1106,6 +1110,10 @@ class _MapSectionState extends State<_MapSection> {
   void didUpdateWidget(covariant _MapSection oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (oldWidget.detail != widget.detail) {
+      _initialCameraOptions = null;
+    }
+
     if (oldWidget.detail != widget.detail ||
         oldWidget.selectedTime != widget.selectedTime) {
       _syncAnnotations();
@@ -1118,6 +1126,7 @@ class _MapSectionState extends State<_MapSection> {
     _brotherhoodRouteManager = null;
     _markerManager = null;
     _map = null;
+    _initialCameraOptions = null;
     super.dispose();
   }
 
@@ -1151,6 +1160,7 @@ class _MapSectionState extends State<_MapSection> {
                 kToolbarHeight -
                 (widget.useBottomNavigation ? kBottomNavigationBarHeight : 0))
             .clamp(360.0, 1200.0);
+    _initialCameraOptions ??= cameraForPoints(_focusPoints, fallbackZoom: 13.8);
 
     return SizedBox(
       height: mapHeight,
@@ -1163,7 +1173,7 @@ class _MapSectionState extends State<_MapSection> {
                 Theme.of(context).brightness,
               ),
               gestureRecognizers: kMapGestureRecognizers,
-              cameraOptions: cameraForPoints(_focusPoints, fallbackZoom: 13.8),
+              cameraOptions: _initialCameraOptions,
               onMapCreated: _onMapCreated,
             )
           else
@@ -1464,6 +1474,7 @@ class _BrotherhoodsSection extends StatelessWidget {
           for (final event in detail.processionEvents) ...[
             _ProcessionEventCard(
               event: event,
+              baseApiUrl: baseApiUrl,
               onTap: () async {
                 onBrotherhoodSelected(event.brotherhoodSlug);
                 final result = await context.pushBrotherhoodDetail<Object?>(
@@ -1527,9 +1538,9 @@ class _BrotherhoodsSection extends StatelessWidget {
                   final event = detail.processionEvents[index];
                   return _ProcessionEventCard(
                     event: event,
+                    baseApiUrl: baseApiUrl,
                     isSelected:
                         event.brotherhoodSlug == selectedEvent.brotherhoodSlug,
-                    showOfficialNote: false,
                     onTap: () {
                       onBrotherhoodSelected(event.brotherhoodSlug);
                     },
@@ -1754,26 +1765,26 @@ class _BrotherhoodPanelHeaderBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
     if (hasImage) {
-      return Image.network(
-        imageUrl!,
+      return _PrivateHeaderImage(
+        imageUrl: imageUrl!,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  accent.withValues(alpha: 0.8),
-                  accent.withValues(alpha: 0.35),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          );
+        errorBuilder: () {
+          return _BrotherhoodPanelHeaderGradient(accent: accent);
         },
       );
     }
 
+    return _BrotherhoodPanelHeaderGradient(accent: accent);
+  }
+}
+
+class _BrotherhoodPanelHeaderGradient extends StatelessWidget {
+  const _BrotherhoodPanelHeaderGradient({required this.accent});
+
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1785,6 +1796,73 @@ class _BrotherhoodPanelHeaderBackground extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
+    );
+  }
+}
+
+class _PrivateHeaderImage extends StatefulWidget {
+  const _PrivateHeaderImage({
+    required this.imageUrl,
+    required this.fit,
+    required this.errorBuilder,
+  });
+
+  final String imageUrl;
+  final BoxFit fit;
+  final Widget Function() errorBuilder;
+
+  @override
+  State<_PrivateHeaderImage> createState() => _PrivateHeaderImageState();
+}
+
+class _PrivateHeaderImageState extends State<_PrivateHeaderImage> {
+  File? _cachedFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedFile();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PrivateHeaderImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _cachedFile = null;
+      _loadCachedFile();
+    }
+  }
+
+  Future<void> _loadCachedFile() async {
+    try {
+      final file = await PrivateImageCache.getOrFetchHeader(widget.imageUrl);
+      if (!mounted) {
+        return;
+      }
+      if (file != null) {
+        setState(() {
+          _cachedFile = file;
+        });
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cachedFile = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cachedFile != null) {
+      return Image.file(_cachedFile!, fit: widget.fit);
+    }
+    return Image.network(
+      widget.imageUrl,
+      fit: widget.fit,
+      errorBuilder: (context, error, stackTrace) => widget.errorBuilder(),
     );
   }
 }
@@ -1853,17 +1931,116 @@ class _BrotherhoodPanelShieldAvatar extends StatelessWidget {
         color: accent.withValues(alpha: 0.25),
       ),
       clipBehavior: Clip.antiAlias,
-      child: hasImage
+      child: _PrivateShieldAvatar(
+        imageUrl: hasImage ? imageUrl : null,
+        size: 30,
+        iconSize: 18,
+        borderColor: Colors.transparent,
+        backgroundColor: Colors.transparent,
+        iconColor: Colors.white,
+      ),
+    );
+  }
+}
+
+class _PrivateShieldAvatar extends StatefulWidget {
+  const _PrivateShieldAvatar({
+    required this.imageUrl,
+    required this.size,
+    required this.iconSize,
+    required this.borderColor,
+    required this.backgroundColor,
+    this.iconColor,
+  });
+
+  final String? imageUrl;
+  final double size;
+  final double iconSize;
+  final Color borderColor;
+  final Color backgroundColor;
+  final Color? iconColor;
+
+  @override
+  State<_PrivateShieldAvatar> createState() => _PrivateShieldAvatarState();
+}
+
+class _PrivateShieldAvatarState extends State<_PrivateShieldAvatar> {
+  File? _cachedFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedFile();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PrivateShieldAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _cachedFile = null;
+      _loadCachedFile();
+    }
+  }
+
+  Future<void> _loadCachedFile() async {
+    final url = widget.imageUrl;
+    if (url == null || url.trim().isEmpty) {
+      return;
+    }
+    try {
+      final file = await PrivateImageCache.getOrFetchShield(url);
+      if (!mounted) {
+        return;
+      }
+      if (file != null) {
+        setState(() {
+          _cachedFile = file;
+        });
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cachedFile = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasNetworkImage =
+        widget.imageUrl != null && widget.imageUrl!.trim().isNotEmpty;
+
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: widget.borderColor, width: 1),
+        color: widget.backgroundColor,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _cachedFile != null
+          ? Image.file(_cachedFile!, fit: BoxFit.cover)
+          : hasNetworkImage
           ? Image.network(
-              imageUrl!,
+              widget.imageUrl!,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.shield_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  Icons.shield_rounded,
+                  size: widget.iconSize,
+                  color:
+                      widget.iconColor ?? Theme.of(context).colorScheme.primary,
+                );
+              },
             )
-          : const Icon(Icons.shield_rounded, color: Colors.white, size: 18),
+          : Icon(
+              Icons.shield_rounded,
+              size: widget.iconSize,
+              color: widget.iconColor ?? Theme.of(context).colorScheme.primary,
+            ),
     );
   }
 }
@@ -2341,15 +2518,15 @@ class _InfoCard extends StatelessWidget {
 class _ProcessionEventCard extends StatelessWidget {
   const _ProcessionEventCard({
     required this.event,
+    required this.baseApiUrl,
     this.onTap,
     this.isSelected = false,
-    this.showOfficialNote = true,
   });
 
   final DayProcessionEvent event;
+  final String baseApiUrl;
   final VoidCallback? onTap;
   final bool isSelected;
-  final bool showOfficialNote;
 
   @override
   Widget build(BuildContext context) {
@@ -2359,6 +2536,10 @@ class _ProcessionEventCard extends StatelessWidget {
     final accent =
         _parseColor(event.brotherhoodColorHex) ?? colorScheme.primary;
     final selectedBackground = accent.withValues(alpha: isDark ? 0.18 : 0.12);
+    final shieldImageUrl = _resolvePanelImageUrl(
+      event.brotherhoodShieldImageUrl,
+      baseApiUrl,
+    );
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 120),
@@ -2382,19 +2563,21 @@ class _ProcessionEventCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  width: 6,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: BorderRadius.circular(999),
+                _PrivateShieldAvatar(
+                  imageUrl: shieldImageUrl,
+                  size: 42,
+                  iconSize: 22,
+                  borderColor: colorScheme.outlineVariant.withValues(
+                    alpha: isDark ? 0.5 : 0.35,
                   ),
+                  backgroundColor: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: isDark ? 0.24 : 0.42),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2405,28 +2588,21 @@ class _ProcessionEventCard extends StatelessWidget {
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _statusLabel(event),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (showOfficialNote &&
-                          event.officialNote.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          event.officialNote,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 4),
+                      Text(
+                        _brotherhoodMetricsLabel(event),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          height: 1.2,
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                      ],
+                        maxLines: 2,
+                        softWrap: true,
+                        overflow: TextOverflow.fade,
+                      ),
                     ],
                   ),
                 ),
@@ -2513,6 +2689,24 @@ String _statusLabel(DayProcessionEvent event) {
     return '${event.status} · $pass min';
   }
   return event.status;
+}
+
+String _brotherhoodMetricsLabel(DayProcessionEvent event) {
+  final pasos = event.stepsCount?.toString() ?? '--';
+  final nazarenos = event.nazarenesCount?.toString() ?? '--';
+  final distance = _formatDistanceLabel(event.distanceMeters);
+  return 'Pasos $pasos · Nazarenos $nazarenos · Distancia $distance';
+}
+
+String _formatDistanceLabel(int? meters) {
+  if (meters == null || meters <= 0) {
+    return '--';
+  }
+  if (meters >= 1000) {
+    final km = meters / 1000;
+    return '${km.toStringAsFixed(km >= 10 ? 0 : 1)} km';
+  }
+  return '$meters m';
 }
 
 List<_ScheduledEventEntry> _buildScheduleEntries(

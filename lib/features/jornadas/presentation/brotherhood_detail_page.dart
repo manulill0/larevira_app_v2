@@ -1,7 +1,14 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 import '../../../core/config/app_instance_controller.dart';
+import '../../../core/media/private_image_cache.dart';
+import '../../../core/maps/mapbox_map_helpers.dart';
 import '../../../core/models/day_detail.dart';
 import '../../../core/network/larevira_api_client.dart';
 import '../../../core/routing/app_routes.dart';
@@ -40,6 +47,10 @@ final _brotherhoodVisualProvider =
           'foundation_year',
           'foundationYear',
         ]);
+        final history = _resolveHistoryText(data);
+        final dressCode = _resolveDressCodeText(data);
+        final figures = _parseFigureItems(data['figures']);
+        final pasos = _parsePasoItems(data['pasos']);
         final headerImageUrl = _resolveImageUrl(
           _pickString(data, const [
             'header_image_url',
@@ -61,6 +72,10 @@ final _brotherhoodVisualProvider =
           shortName: shortName,
           fullName: fullName,
           foundationYear: foundationYear,
+          history: history,
+          dressCode: dressCode,
+          figures: figures,
+          pasos: pasos,
           headerImageUrl: headerImageUrl,
           shieldImageUrl: shieldImageUrl,
         );
@@ -191,7 +206,9 @@ class BrotherhoodDetailPage extends ConsumerWidget {
                 isTablet: isTablet,
               ),
               _ItineraryTab(event: event),
-              _MapTab(event: event),
+              _MapTab(
+                event: event,
+              ),
             ],
           ),
         ),
@@ -287,6 +304,12 @@ class _InformationTab extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final horizontal = isTablet ? 20.0 : 16.0;
+    final historyMessage =
+        visual?.history?.trim().isNotEmpty == true
+        ? visual!.history!.trim()
+        : event?.brotherhoodHistory?.trim().isNotEmpty == true
+        ? event!.brotherhoodHistory!.trim()
+        : 'No hay historia disponible para esta hermandad.';
 
     return ListView(
       padding: EdgeInsets.fromLTRB(horizontal, 10, horizontal, 24),
@@ -348,106 +371,73 @@ class _InformationTab extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              if (isTablet)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _InfoBlock(
-                        title: 'Estado',
-                        child: Text(_statusLabel(event!)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _InfoBlock(
-                        title: 'Identificador',
-                        child: SelectableText(
-                          event!.brotherhoodSlug.isEmpty
-                              ? 'Sin slug disponible'
-                              : event!.brotherhoodSlug,
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              else ...[
-                _InfoBlock(title: 'Estado', child: Text(_statusLabel(event!))),
-                const SizedBox(height: 12),
-                _InfoBlock(
-                  title: 'Identificador',
-                  child: SelectableText(
-                    event!.brotherhoodSlug.isEmpty
-                        ? 'Sin slug disponible'
-                        : event!.brotherhoodSlug,
-                  ),
-                ),
-              ],
+              _SectionCard(
+                title: 'Historia',
+                child: Text(historyMessage),
+              ),
               const SizedBox(height: 12),
-              if (isTablet)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _InfoBlock(
-                        title: 'Color',
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                color: accent,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
+              _SectionCard(
+                title: 'Túnicas',
+                child: Text(
+                  visual?.dressCode?.trim().isNotEmpty == true
+                      ? visual!.dressCode!.trim()
+                      : event?.brotherhoodDressCode?.trim().isNotEmpty == true
+                      ? event!.brotherhoodDressCode!.trim()
+                      : 'No hay información de túnicas disponible.',
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: 'Titulares',
+                child: _FigureCardsContent(
+                  figures: visual?.figures ??
+                      event?.brotherhoodFigures
+                          .map(
+                            (item) => _BrotherhoodFigureItem(
+                              name: item.name,
+                              description: item.description,
                             ),
-                            const SizedBox(width: 10),
-                            Text(event!.brotherhoodColorHex),
-                          ],
-                        ),
+                          )
+                          .toList(growable: false) ??
+                      const [],
+                  emptyLabel: 'No hay titulares disponibles.',
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: 'Pasos',
+                child: _PasoCardsContent(
+                  pasos: visual?.pasos ??
+                      event?.brotherhoodPasos
+                          .map(
+                            (item) => _BrotherhoodPasoItem(
+                              name: item.name,
+                              description: item.description,
+                            ),
+                          )
+                          .toList(growable: false) ??
+                      const [],
+                  emptyLabel: 'No hay pasos disponibles.',
+                ),
+              ),
+              const SizedBox(height: 12),
+              _InfoBlock(
+                title: 'Color',
+                child: Row(
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(999),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _InfoBlock(
-                        title: 'Nota oficial',
-                        child: Text(
-                          event!.officialNote.isEmpty
-                              ? 'No hay nota oficial para esta hermandad en la jornada.'
-                              : event!.officialNote,
-                        ),
-                      ),
-                    ),
+                    const SizedBox(width: 10),
+                    Text(event!.brotherhoodColorHex),
                   ],
-                )
-              else ...[
-                _InfoBlock(
-                  title: 'Color',
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: accent,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(event!.brotherhoodColorHex),
-                    ],
-                  ),
                 ),
-                const SizedBox(height: 12),
-                _InfoBlock(
-                  title: 'Nota oficial',
-                  child: Text(
-                    event!.officialNote.isEmpty
-                        ? 'No hay nota oficial para esta hermandad en la jornada.'
-                        : event!.officialNote,
-                  ),
-                ),
-              ],
+              ),
             ],
     );
   }
@@ -460,6 +450,8 @@ class _ItineraryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = AppColors.primary;
+
     if (event == null) {
       return ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
@@ -485,18 +477,18 @@ class _ItineraryTab extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       itemCount: points.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final point = points[index];
-        return _InfoBlock(
-          title: '${index + 1}. ${point.name}',
-          child: Text(
-            point.plannedAt == null
-                ? 'Hora no disponible'
-                : 'Hora prevista: ${_formatTime(point.plannedAt!)}',
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _ItineraryPointTile(
+            index: index + 1,
+            name: point.name,
+            timeLabel: point.plannedAt == null ? '--:--' : _formatTime(point.plannedAt!),
+            accent: accent,
           ),
         );
       },
@@ -504,22 +496,646 @@ class _ItineraryTab extends StatelessWidget {
   }
 }
 
-class _MapTab extends StatelessWidget {
+class _ItineraryPointTile extends StatelessWidget {
+  const _ItineraryPointTile({
+    required this.index,
+    required this.name,
+    required this.timeLabel,
+    required this.accent,
+  });
+
+  final int index;
+  final String name;
+  final String timeLabel;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accent,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '$index',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Cinzel',
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Lora',
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              timeLabel,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Cinzel',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              Icons.map_outlined,
+              color: accent,
+              size: 26,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MapTab extends StatefulWidget {
   const _MapTab({required this.event});
 
   final DayProcessionEvent? event;
 
   @override
+  State<_MapTab> createState() => _MapTabState();
+}
+
+class _MapTabState extends State<_MapTab> {
+  PolylineAnnotationManager? _polylineManager;
+  PointAnnotationManager? _pointManager;
+  Uint8List? _houseIconBytes;
+  bool _showLegend = true;
+
+  List<MapPoint> get _brotherhoodRoutePoints {
+    final event = widget.event;
+    if (event == null) {
+      return const <MapPoint>[];
+    }
+    return event.routePoints
+        .where((point) => point.hasLocation)
+        .map(
+          (point) => MapPoint(
+            latitude: point.latitude!,
+            longitude: point.longitude!,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<_KmlLinePlacemark> get _kmlLinePlacemarks =>
+      _parseKml(widget.event?.routeKml).lines;
+
+  List<_KmlPointPlacemark> get _kmlPointPlacemarks =>
+      _parseKml(widget.event?.routeKml).points;
+
+  List<MapPoint> get _allPoints {
+    final kmlLines = _kmlLinePlacemarks;
+    if (kmlLines.isNotEmpty) {
+      final points = kmlLines.expand((line) => line.points).toList(growable: false);
+      if (_kmlPointPlacemarks.isNotEmpty) {
+        return [
+          ...points,
+          ..._kmlPointPlacemarks.map((point) => point.point),
+        ];
+      }
+      return points;
+    }
+    return _brotherhoodRoutePoints;
+  }
+
+  Future<void> _onMapCreated(MapboxMap mapboxMap) async {
+    _polylineManager = await mapboxMap.annotations
+        .createPolylineAnnotationManager();
+    _pointManager = await mapboxMap.annotations.createPointAnnotationManager();
+    _houseIconBytes ??= await _buildHouseIconBytes(AppColors.primary);
+    await _syncAnnotations();
+  }
+
+  Future<void> _syncAnnotations() async {
+    final polylineManager = _polylineManager;
+    final pointManager = _pointManager;
+    if (polylineManager == null || pointManager == null) {
+      return;
+    }
+
+    await polylineManager.deleteAll();
+    await pointManager.deleteAll();
+
+    final accent =
+        _parseColor(widget.event?.brotherhoodColorHex ?? '') ?? AppColors.primary;
+    final kmlLines = _kmlLinePlacemarks;
+    if (kmlLines.isNotEmpty) {
+      for (final line in kmlLines) {
+        if (line.points.length < 2) {
+          continue;
+        }
+        await polylineManager.create(
+          PolylineAnnotationOptions(
+            geometry: LineString(
+              coordinates: line.points
+                  .map((point) => point.toPoint().coordinates)
+                  .toList(growable: false),
+            ),
+            lineColor: (line.color ?? accent).toARGB32(),
+            lineWidth: 5.5,
+          ),
+        );
+      }
+    } else {
+      final brotherhoodPoints = _brotherhoodRoutePoints;
+      if (brotherhoodPoints.length >= 2) {
+        await polylineManager.create(
+          PolylineAnnotationOptions(
+            geometry: LineString(
+              coordinates: brotherhoodPoints
+                  .map((point) => point.toPoint().coordinates)
+                  .toList(growable: false),
+            ),
+            lineColor: accent.toARGB32(),
+            lineWidth: 5.5,
+          ),
+        );
+      }
+    }
+
+    final icon = _houseIconBytes ?? await _buildHouseIconBytes(AppColors.primary);
+    _houseIconBytes = icon;
+    for (final point in _kmlPointPlacemarks) {
+      await pointManager.create(
+        PointAnnotationOptions(
+          geometry: point.point.toPoint(),
+          image: icon,
+          iconSize: 1.4,
+          textField: point.label,
+          textColor: AppColors.primary.toARGB32(),
+          textHaloColor: Colors.white.toARGB32(),
+          textHaloWidth: 1.5,
+          textSize: 11,
+          textAnchor: TextAnchor.TOP,
+          textOffset: const [0.0, 1.6],
+          symbolSortKey: 3000,
+        ),
+      );
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MapTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.event != widget.event) {
+      _syncAnnotations();
+    }
+  }
+
+  @override
+  void dispose() {
+    _polylineManager = null;
+    _pointManager = null;
+    _houseIconBytes = null;
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-      children: [
-        _InfoBlock(
-          title: 'Mapa',
+    if (widget.event == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
           child: Text(
-            event == null
-                ? 'No hay geometría disponible para esta hermandad en esta jornada.'
-                : 'Vista de mapa específica de hermandad en preparación.',
+            'No hay geometría disponible para esta hermandad en esta jornada.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    if (kMapboxAccessToken.isEmpty) {
+      return Center(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Falta MAPBOX_ACCESS_TOKEN. Ejecuta la app con --dart-define=MAPBOX_ACCESS_TOKEN=tu_token.',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final accent =
+        _parseColor(widget.event?.brotherhoodColorHex ?? '') ?? AppColors.primary;
+
+    return Stack(
+      children: [
+        MapWidget(
+          key: const ValueKey('brotherhood-detail-map'),
+          styleUri: mapboxStyleUriForBrightness(Theme.of(context).brightness),
+          gestureRecognizers: kMapGestureRecognizers,
+          cameraOptions: cameraForPoints(_allPoints, fallbackZoom: 14),
+          onMapCreated: _onMapCreated,
+        ),
+        Positioned(
+          left: 12,
+          bottom: 12,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: () {
+                    setState(() {
+                      _showLegend = !_showLegend;
+                    });
+                  },
+                  icon: Icon(
+                    _showLegend
+                        ? Icons.visibility_off_outlined
+                        : Icons.palette_outlined,
+                    size: 16,
+                  ),
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  label: Text(
+                    _showLegend ? 'Ocultar' : 'Leyenda',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                if (_showLegend) ...[
+                  const SizedBox(height: 6),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: 190,
+                        maxHeight: 145,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _LegendRow(
+                                color: AppColors.primary,
+                                label: 'Punto KML (casa)',
+                              ),
+                              const SizedBox(height: 6),
+                              if (_kmlLinePlacemarks.isNotEmpty)
+                                for (final line in _kmlLinePlacemarks) ...[
+                                  _LegendRow(
+                                    color: line.color ?? accent,
+                                    label: line.label,
+                                  ),
+                                  const SizedBox(height: 6),
+                                ]
+                              else
+                                _LegendRow(
+                                  color: accent,
+                                  label: widget.event?.brotherhoodName ?? 'Ruta',
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _KmlLinePlacemark {
+  const _KmlLinePlacemark({
+    required this.points,
+    required this.label,
+    this.color,
+  });
+
+  final List<MapPoint> points;
+  final String label;
+  final Color? color;
+}
+
+class _KmlPointPlacemark {
+  const _KmlPointPlacemark({required this.point, required this.label});
+
+  final MapPoint point;
+  final String label;
+}
+
+class _ParsedKmlGeometry {
+  const _ParsedKmlGeometry({
+    required this.lines,
+    required this.points,
+  });
+
+  final List<_KmlLinePlacemark> lines;
+  final List<_KmlPointPlacemark> points;
+}
+
+_ParsedKmlGeometry _parseKml(String? rawKml) {
+  final source = rawKml?.trim() ?? '';
+  if (source.isEmpty) {
+    return const _ParsedKmlGeometry(lines: [], points: []);
+  }
+
+  final styleColorById = <String, Color>{};
+  final styleMapToStyleId = <String, String>{};
+
+  final styleMatches = RegExp(
+    r'<Style[^>]*id="([^"]+)"[^>]*>(.*?)</Style>',
+    caseSensitive: false,
+    dotAll: true,
+  ).allMatches(source);
+  for (final match in styleMatches) {
+    final styleId = match.group(1)?.trim();
+    final body = match.group(2) ?? '';
+    final colorMatch = RegExp(
+      r'<LineStyle[^>]*>.*?<color[^>]*>\s*([0-9a-fA-F]{8})\s*</color>.*?</LineStyle>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    if (styleId == null || styleId.isEmpty || colorMatch == null) {
+      continue;
+    }
+    final color = _parseKmlColor(colorMatch.group(1)!);
+    if (color != null) {
+      styleColorById[styleId] = color;
+    }
+  }
+
+  final styleMapMatches = RegExp(
+    r'<StyleMap[^>]*id="([^"]+)"[^>]*>(.*?)</StyleMap>',
+    caseSensitive: false,
+    dotAll: true,
+  ).allMatches(source);
+  for (final match in styleMapMatches) {
+    final styleMapId = match.group(1)?.trim();
+    final body = match.group(2) ?? '';
+    if (styleMapId == null || styleMapId.isEmpty) {
+      continue;
+    }
+    final normalPair = RegExp(
+      r'<Pair[^>]*>.*?<key>\s*normal\s*</key>.*?<styleUrl>\s*#?([^<\s]+)\s*</styleUrl>.*?</Pair>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    final resolved = normalPair?.group(1)?.trim();
+    if (resolved != null && resolved.isNotEmpty) {
+      styleMapToStyleId[styleMapId] = resolved;
+    }
+  }
+
+  final lines = <_KmlLinePlacemark>[];
+  final points = <_KmlPointPlacemark>[];
+
+  final placemarkMatches = RegExp(
+    r'<Placemark[^>]*>(.*?)</Placemark>',
+    caseSensitive: false,
+    dotAll: true,
+  ).allMatches(source);
+
+  for (final match in placemarkMatches) {
+    final body = match.group(1) ?? '';
+    final name = _extractXmlTag(body, 'name') ?? 'Punto KML';
+    final styleUrl = _extractXmlTag(body, 'styleUrl')?.replaceAll('#', '').trim();
+    final resolvedStyleId = styleMapToStyleId[styleUrl] ?? styleUrl;
+    final inlineColorMatch = RegExp(
+      r'<LineStyle[^>]*>.*?<color[^>]*>\s*([0-9a-fA-F]{8})\s*</color>.*?</LineStyle>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    final lineColor = inlineColorMatch != null
+        ? _parseKmlColor(inlineColorMatch.group(1)!)
+        : styleColorById[resolvedStyleId] ?? _parseColorFromStyleUrl(resolvedStyleId);
+
+    final lineCoordinates = RegExp(
+      r'<LineString[^>]*>.*?<coordinates[^>]*>\s*([^<]+?)\s*</coordinates>.*?</LineString>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    if (lineCoordinates != null) {
+      final linePoints = _parseCoordinateTuples(lineCoordinates.group(1)!);
+      if (linePoints.length >= 2) {
+        lines.add(
+          _KmlLinePlacemark(
+            points: linePoints,
+            label: name,
+            color: lineColor,
+          ),
+        );
+      }
+    }
+
+    final pointCoordinates = RegExp(
+      r'<Point[^>]*>.*?<coordinates[^>]*>\s*([^<]+?)\s*</coordinates>.*?</Point>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    if (pointCoordinates != null) {
+      final pointList = _parseCoordinateTuples(pointCoordinates.group(1)!);
+      if (pointList.isNotEmpty) {
+        points.add(_KmlPointPlacemark(point: pointList.first, label: name));
+      }
+    }
+  }
+
+  return _ParsedKmlGeometry(lines: lines, points: points);
+}
+
+Color? _parseKmlColor(String kmlColor) {
+  final value = kmlColor.trim();
+  if (value.length != 8) {
+    return null;
+  }
+  final aa = value.substring(0, 2);
+  final bb = value.substring(2, 4);
+  final gg = value.substring(4, 6);
+  final rr = value.substring(6, 8);
+  final argbHex = '$aa$rr$gg$bb';
+  final parsed = int.tryParse(argbHex, radix: 16);
+  if (parsed == null) {
+    return null;
+  }
+  return Color(parsed);
+}
+
+Color? _parseColorFromStyleUrl(String? styleUrl) {
+  if (styleUrl == null || styleUrl.isEmpty) {
+    return null;
+  }
+  final lineMatch = RegExp(
+    r'line-([0-9a-fA-F]{6})-\d+',
+    caseSensitive: false,
+  ).firstMatch(styleUrl);
+  if (lineMatch != null) {
+    final parsed = int.tryParse(lineMatch.group(1)!, radix: 16);
+    if (parsed != null) {
+      return Color(0xFF000000 | parsed);
+    }
+  }
+  final iconMatch = RegExp(
+    r'icon-\d+-([0-9a-fA-F]{6})',
+    caseSensitive: false,
+  ).firstMatch(styleUrl);
+  if (iconMatch != null) {
+    final parsed = int.tryParse(iconMatch.group(1)!, radix: 16);
+    if (parsed != null) {
+      return Color(0xFF000000 | parsed);
+    }
+  }
+  return null;
+}
+
+String? _extractXmlTag(String source, String tag) {
+  final match = RegExp(
+    '<$tag[^>]*>\\s*([^<]+?)\\s*</$tag>',
+    caseSensitive: false,
+    dotAll: true,
+  ).firstMatch(source);
+  return match?.group(1)?.trim();
+}
+
+List<MapPoint> _parseCoordinateTuples(String rawCoordinates) {
+  final points = <MapPoint>[];
+  for (final tuple in rawCoordinates.trim().split(RegExp(r'\s+'))) {
+    final values = tuple.split(',');
+    if (values.length < 2) {
+      continue;
+    }
+    final longitude = double.tryParse(values[0].trim());
+    final latitude = double.tryParse(values[1].trim());
+    if (latitude == null || longitude == null) {
+      continue;
+    }
+    points.add(MapPoint(latitude: latitude, longitude: longitude));
+  }
+  return points;
+}
+
+Future<Uint8List> _buildHouseIconBytes(Color color) async {
+  const size = 64.0;
+  final recorder = ui.PictureRecorder();
+  final canvas = ui.Canvas(recorder);
+  final fill = ui.Paint()..color = color;
+  final stroke = ui.Paint()
+    ..color = const Color(0xFFFFFFFF)
+    ..style = ui.PaintingStyle.stroke
+    ..strokeWidth = 2.0;
+
+  final roof = ui.Path()
+    ..moveTo(size * 0.12, size * 0.52)
+    ..lineTo(size * 0.50, size * 0.18)
+    ..lineTo(size * 0.88, size * 0.52)
+    ..close();
+  final body = ui.RRect.fromRectAndRadius(
+    ui.Rect.fromLTWH(size * 0.24, size * 0.50, size * 0.52, size * 0.32),
+    const ui.Radius.circular(4),
+  );
+  final door = ui.RRect.fromRectAndRadius(
+    ui.Rect.fromLTWH(size * 0.45, size * 0.62, size * 0.12, size * 0.20),
+    const ui.Radius.circular(2),
+  );
+
+  canvas.drawPath(roof, fill);
+  canvas.drawRRect(body, fill);
+  canvas.drawRRect(door, ui.Paint()..color = const Color(0xFFFFFFFF));
+  canvas.drawPath(roof, stroke);
+  canvas.drawRRect(body, stroke);
+
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(size.toInt(), size.toInt());
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  return bytes!.buffer.asUint8List();
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({
+    required this.color,
+    required this.label,
+  });
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          margin: const EdgeInsets.only(top: 3),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
           ),
         ),
       ],
@@ -540,11 +1156,10 @@ class _BrotherhoodHeaderBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
     final imageWidget = hasImage
-        ? Image.network(
-            imageUrl!,
+        ? _PrivateHeaderBackgroundImage(
+            imageUrl: imageUrl!,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                _FallbackBrotherhoodHeader(accent: accent),
+            errorBuilder: () => _FallbackBrotherhoodHeader(accent: accent),
           )
         : _FallbackBrotherhoodHeader(accent: accent);
 
@@ -565,6 +1180,75 @@ class _BrotherhoodHeaderBackground extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PrivateHeaderBackgroundImage extends StatefulWidget {
+  const _PrivateHeaderBackgroundImage({
+    required this.imageUrl,
+    required this.fit,
+    required this.errorBuilder,
+  });
+
+  final String imageUrl;
+  final BoxFit fit;
+  final Widget Function() errorBuilder;
+
+  @override
+  State<_PrivateHeaderBackgroundImage> createState() =>
+      _PrivateHeaderBackgroundImageState();
+}
+
+class _PrivateHeaderBackgroundImageState
+    extends State<_PrivateHeaderBackgroundImage> {
+  File? _cachedFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedFile();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PrivateHeaderBackgroundImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _cachedFile = null;
+      _loadCachedFile();
+    }
+  }
+
+  Future<void> _loadCachedFile() async {
+    try {
+      final file = await PrivateImageCache.getOrFetchHeader(widget.imageUrl);
+      if (!mounted) {
+        return;
+      }
+      if (file != null) {
+        setState(() {
+          _cachedFile = file;
+        });
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cachedFile = null;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cachedFile != null) {
+      return Image.file(_cachedFile!, fit: widget.fit);
+    }
+    return Image.network(
+      widget.imageUrl,
+      fit: widget.fit,
+      errorBuilder: (context, error, stackTrace) => widget.errorBuilder(),
     );
   }
 }
@@ -667,7 +1351,7 @@ class _BrotherhoodHeaderIdentity extends StatelessWidget {
   }
 }
 
-class _BrotherhoodShieldAvatar extends StatelessWidget {
+class _BrotherhoodShieldAvatar extends StatefulWidget {
   const _BrotherhoodShieldAvatar({
     required this.imageUrl,
     required this.accent,
@@ -683,32 +1367,81 @@ class _BrotherhoodShieldAvatar extends StatelessWidget {
   final Color foregroundColor;
 
   @override
+  State<_BrotherhoodShieldAvatar> createState() => _BrotherhoodShieldAvatarState();
+}
+
+class _BrotherhoodShieldAvatarState extends State<_BrotherhoodShieldAvatar> {
+  File? _cachedFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedFile();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BrotherhoodShieldAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _cachedFile = null;
+      _loadCachedFile();
+    }
+  }
+
+  Future<void> _loadCachedFile() async {
+    final url = widget.imageUrl;
+    if (url == null || url.trim().isEmpty) {
+      return;
+    }
+    try {
+      final file = await PrivateImageCache.getOrFetchShield(url);
+      if (!mounted) {
+        return;
+      }
+      if (file != null) {
+        setState(() {
+          _cachedFile = file;
+        });
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cachedFile = null;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+    final hasImage = widget.imageUrl != null && widget.imageUrl!.trim().isNotEmpty;
 
     return Container(
-      width: size,
-      height: size,
+      width: widget.size,
+      height: widget.size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: borderColor, width: 1.2),
-        color: accent.withValues(alpha: 0.25),
+        border: Border.all(color: widget.borderColor, width: 1.2),
+        color: widget.accent.withValues(alpha: 0.25),
       ),
       clipBehavior: Clip.antiAlias,
-      child: hasImage
+      child: _cachedFile != null
+          ? Image.file(_cachedFile!, fit: BoxFit.cover)
+          : hasImage
           ? Image.network(
-              imageUrl!,
+              widget.imageUrl!,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Icon(
                 Icons.shield_rounded,
-                color: foregroundColor,
-                size: size * 0.62,
+                color: widget.foregroundColor,
+                size: widget.size * 0.62,
               ),
             )
           : Icon(
               Icons.shield_rounded,
-              color: foregroundColor,
-              size: size * 0.62,
+              color: widget.foregroundColor,
+              size: widget.size * 0.62,
             ),
     );
   }
@@ -741,6 +1474,109 @@ class _InfoBlock extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FigureCardsContent extends StatelessWidget {
+  const _FigureCardsContent({required this.figures, required this.emptyLabel});
+
+  final List<_BrotherhoodFigureItem> figures;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (figures.isEmpty) {
+      return Text(emptyLabel);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < figures.length; i++) ...[
+          Text(
+            figures[i].name,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (figures[i].description != null &&
+              figures[i].description!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(_sanitizeHistoryText(figures[i].description!.trim())),
+          ],
+          if (i != figures.length - 1) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
+class _PasoCardsContent extends StatelessWidget {
+  const _PasoCardsContent({required this.pasos, required this.emptyLabel});
+
+  final List<_BrotherhoodPasoItem> pasos;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (pasos.isEmpty) {
+      return Text(emptyLabel);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < pasos.length; i++) ...[
+          Text(
+            pasos[i].name,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (pasos[i].description != null &&
+              pasos[i].description!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(_sanitizeHistoryText(pasos[i].description!.trim())),
+          ],
+          if (i != pasos.length - 1) const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 }
@@ -791,14 +1627,6 @@ class _StatCard extends StatelessWidget {
       ),
     );
   }
-}
-
-String _statusLabel(DayProcessionEvent event) {
-  final pass = event.passDurationMinutes;
-  if (pass != null) {
-    return '${event.status} · $pass min';
-  }
-  return event.status;
 }
 
 Color? _parseColor(String raw) {
@@ -860,6 +1688,10 @@ class _BrotherhoodVisualData {
     required this.shortName,
     required this.fullName,
     required this.foundationYear,
+    required this.history,
+    required this.dressCode,
+    required this.figures,
+    required this.pasos,
     required this.headerImageUrl,
     required this.shieldImageUrl,
   });
@@ -867,8 +1699,32 @@ class _BrotherhoodVisualData {
   final String? shortName;
   final String? fullName;
   final int? foundationYear;
+  final String? history;
+  final String? dressCode;
+  final List<_BrotherhoodFigureItem> figures;
+  final List<_BrotherhoodPasoItem> pasos;
   final String? headerImageUrl;
   final String? shieldImageUrl;
+}
+
+class _BrotherhoodFigureItem {
+  const _BrotherhoodFigureItem({
+    required this.name,
+    required this.description,
+  });
+
+  final String name;
+  final String? description;
+}
+
+class _BrotherhoodPasoItem {
+  const _BrotherhoodPasoItem({
+    required this.name,
+    required this.description,
+  });
+
+  final String name;
+  final String? description;
 }
 
 String? _pickString(Map<String, dynamic> source, List<String> keys) {
@@ -898,6 +1754,181 @@ int? _pickInt(Map<String, dynamic> source, List<String> keys) {
     }
   }
   return null;
+}
+
+String? _resolveHistoryText(Map<String, dynamic> source) {
+  final direct = _pickString(source, const ['history', 'historia', 'about']);
+  if (direct != null && direct.trim().isNotEmpty) {
+    return _sanitizeHistoryText(direct);
+  }
+
+  final metadata = source['metadata'];
+  if (metadata is Map<String, dynamic>) {
+    final metaText = _pickString(
+      metadata,
+      const ['history', 'historia', 'about', 'description'],
+    );
+    if (metaText != null && metaText.trim().isNotEmpty) {
+      return _sanitizeHistoryText(metaText);
+    }
+  }
+
+  final rich = source['history'];
+  final extracted = _extractHistoryFromDynamic(rich);
+  if (extracted != null && extracted.trim().isNotEmpty) {
+    return _sanitizeHistoryText(extracted);
+  }
+
+  return null;
+}
+
+String? _resolveDressCodeText(Map<String, dynamic> source) {
+  final direct = _pickString(source, const ['dress_code', 'dressCode']);
+  if (direct != null && direct.trim().isNotEmpty) {
+    return direct.trim();
+  }
+
+  final metadata = source['metadata'];
+  if (metadata is Map<String, dynamic>) {
+    final fromMetadata = _pickString(metadata, const [
+      'dress_code',
+      'dressCode',
+    ]);
+    if (fromMetadata != null && fromMetadata.trim().isNotEmpty) {
+      return fromMetadata.trim();
+    }
+  }
+  return null;
+}
+
+List<_BrotherhoodFigureItem> _parseFigureItems(Object? raw) {
+  if (raw is! List) {
+    return const [];
+  }
+  final items = <_BrotherhoodFigureItem>[];
+  for (final entry in raw) {
+    if (entry is! Map<String, dynamic>) {
+      continue;
+    }
+    final name = _pickString(entry, const ['name']);
+    if (name == null || name.trim().isEmpty) {
+      continue;
+    }
+    items.add(
+      _BrotherhoodFigureItem(
+        name: name.trim(),
+        description: _resolveDescriptionText(entry),
+      ),
+    );
+  }
+  return items;
+}
+
+List<_BrotherhoodPasoItem> _parsePasoItems(Object? raw) {
+  if (raw is! List) {
+    return const [];
+  }
+  final items = <_BrotherhoodPasoItem>[];
+  for (final entry in raw) {
+    if (entry is! Map<String, dynamic>) {
+      continue;
+    }
+    final name = _pickString(entry, const ['name']);
+    if (name == null || name.trim().isEmpty) {
+      continue;
+    }
+    items.add(
+      _BrotherhoodPasoItem(
+        name: name.trim(),
+        description: _resolveDescriptionText(entry),
+      ),
+    );
+  }
+  return items;
+}
+
+String? _resolveDescriptionText(Map<String, dynamic> source) {
+  final direct = _pickString(source, const ['description', 'desc', 'text']);
+  if (direct != null && direct.trim().isNotEmpty) {
+    return direct.trim();
+  }
+
+  final dynamicDescription = _extractHistoryFromDynamic(
+    source['description'] ?? source['text'] ?? source['content'],
+  );
+  if (dynamicDescription != null && dynamicDescription.trim().isNotEmpty) {
+    return dynamicDescription.trim();
+  }
+
+  final metadata = source['metadata'];
+  if (metadata is Map<String, dynamic>) {
+    final fromMetadata = _pickString(
+      metadata,
+      const ['description', 'desc', 'text'],
+    );
+    if (fromMetadata != null && fromMetadata.trim().isNotEmpty) {
+      return fromMetadata.trim();
+    }
+  }
+
+  return null;
+}
+
+String? _extractHistoryFromDynamic(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is String) {
+    return value;
+  }
+  if (value is List) {
+    final parts = value
+        .map(_extractHistoryFromDynamic)
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join('\n');
+  }
+  if (value is Map) {
+    final parts = <String>[];
+    for (final key in const ['text', 'content', 'value', 'history', 'html']) {
+      final candidate = _extractHistoryFromDynamic(value[key]);
+      if (candidate != null && candidate.trim().isNotEmpty) {
+        parts.add(candidate);
+      }
+    }
+    if (parts.isNotEmpty) {
+      return parts.join('\n');
+    }
+    final nested = value.values
+        .map(_extractHistoryFromDynamic)
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
+    if (nested.isEmpty) {
+      return null;
+    }
+    return nested.join('\n');
+  }
+  return value.toString();
+}
+
+String _sanitizeHistoryText(String raw) {
+  var text = raw;
+  text = text.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+  text = text.replaceAll(RegExp(r'</p>', caseSensitive: false), '\n');
+  text = text.replaceAll(RegExp(r'<[^>]+>'), '');
+  text = text.replaceAll('&nbsp;', ' ');
+  text = text.replaceAll('&amp;', '&');
+  text = text.replaceAll('&quot;', '"');
+  text = text.replaceAll('&#39;', "'");
+  text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+  return text.trim();
 }
 
 String? _resolveImageUrl(String? raw, String baseApiUrl) {

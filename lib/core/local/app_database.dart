@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -35,7 +36,13 @@ class Days extends Table {
   TextColumn get slug => text()();
   TextColumn get name => text()();
   DateTimeColumn get startsAt => dateTime().nullable()();
+  DateTimeColumn get liturgicalDate => dateTime().nullable()();
   IntColumn get processionEventsCount => integer()();
+  TextColumn get weatherIconCode => text().nullable()();
+  TextColumn get weatherConditionLabel => text().nullable()();
+  RealColumn get weatherTempMinC => real().nullable()();
+  RealColumn get weatherTempMaxC => real().nullable()();
+  TextColumn get weatherHourlyJson => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {citySlug, yearValue, mode, slug};
@@ -62,12 +69,21 @@ class DayProcessionEventEntries extends Table {
   TextColumn get status => text()();
   TextColumn get officialNote => text()();
   IntColumn get passDurationMinutes => integer().nullable()();
+  IntColumn get stepsCount => integer().nullable()();
+  IntColumn get distanceMeters => integer().nullable()();
   IntColumn get brothersCount => integer().nullable()();
   IntColumn get nazarenesCount => integer().nullable()();
   TextColumn get brotherhoodName => text()();
   TextColumn get brotherhoodSlug => text()();
   TextColumn get brotherhoodColorHex => text()();
+  TextColumn get brotherhoodHistory => text().nullable()();
+  TextColumn get brotherhoodHeaderImageUrl => text().nullable()();
+  TextColumn get brotherhoodDressCode => text().nullable()();
+  TextColumn get brotherhoodFiguresJson => text().nullable()();
+  TextColumn get brotherhoodPasosJson => text().nullable()();
+  TextColumn get brotherhoodShieldImageUrl => text().nullable()();
   TextColumn get routeArgb => text().nullable()();
+  TextColumn get routeKml => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {
@@ -177,7 +193,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -219,6 +235,60 @@ class AppDatabase extends _$AppDatabase {
           dayProcessionEventEntries,
           dayProcessionEventEntries.nazarenesCount,
         );
+      }
+      if (from < 10) {
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.stepsCount,
+        );
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.distanceMeters,
+        );
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.brotherhoodShieldImageUrl,
+        );
+      }
+      if (from < 11) {
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.brotherhoodHistory,
+        );
+      }
+      if (from < 12) {
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.brotherhoodDressCode,
+        );
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.brotherhoodFiguresJson,
+        );
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.brotherhoodPasosJson,
+        );
+      }
+      if (from < 13) {
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.brotherhoodHeaderImageUrl,
+        );
+      }
+      if (from < 14) {
+        await m.addColumn(
+          dayProcessionEventEntries,
+          dayProcessionEventEntries.routeKml,
+        );
+      }
+      if (from < 15) {
+        await m.addColumn(days, days.liturgicalDate);
+        await m.addColumn(days, days.weatherIconCode);
+        await m.addColumn(days, days.weatherConditionLabel);
+        await m.addColumn(days, days.weatherTempMinC);
+        await m.addColumn(days, days.weatherTempMaxC);
+        await m.addColumn(days, days.weatherHourlyJson);
       }
     },
   );
@@ -271,7 +341,13 @@ class AppDatabase extends _$AppDatabase {
                   slug: item.slug,
                   name: item.name,
                   startsAt: Value(item.startsAt),
+                  liturgicalDate: Value(item.liturgicalDate),
                   processionEventsCount: item.processionEventsCount,
+                  weatherIconCode: Value(item.weather?.iconCode),
+                  weatherConditionLabel: Value(item.weather?.conditionLabel),
+                  weatherTempMinC: Value(item.weather?.tempMinC),
+                  weatherTempMaxC: Value(item.weather?.tempMaxC),
+                  weatherHourlyJson: Value(_encodeWeatherHourly(item.weather)),
                 ),
               )
               .toList(growable: false),
@@ -302,10 +378,64 @@ class AppDatabase extends _$AppDatabase {
             slug: row.slug,
             name: row.name,
             startsAt: row.startsAt,
+            liturgicalDate: row.liturgicalDate,
             processionEventsCount: row.processionEventsCount,
+            weather: DayWeatherSummary(
+              iconCode: row.weatherIconCode,
+              conditionLabel: row.weatherConditionLabel,
+              tempMinC: row.weatherTempMinC,
+              tempMaxC: row.weatherTempMaxC,
+              hourly: _decodeWeatherHourly(row.weatherHourlyJson),
+            ),
           ),
         )
         .toList(growable: false);
+  }
+
+  Future<int> applyDayWeatherUpdates({
+    required String city,
+    required int year,
+    required String modeValue,
+    required Map<String, DayWeatherSummary> weatherBySlug,
+  }) async {
+    if (weatherBySlug.isEmpty) {
+      return 0;
+    }
+
+    var updatedRows = 0;
+
+    await transaction(() async {
+      for (final entry in weatherBySlug.entries) {
+        final slug = entry.key.trim();
+        if (slug.isEmpty) {
+          continue;
+        }
+
+        final weather = entry.value;
+        final affected = await (update(days)..where(
+              (tbl) =>
+                  tbl.citySlug.equals(city) &
+                  tbl.yearValue.equals(year) &
+                  tbl.mode.equals(modeValue) &
+                  tbl.slug.equals(slug),
+            ))
+            .write(
+              DaysCompanion(
+                weatherIconCode: Value(weather.iconCode),
+                weatherConditionLabel: Value(weather.conditionLabel),
+                weatherTempMinC: Value(weather.tempMinC),
+                weatherTempMaxC: Value(weather.tempMaxC),
+                weatherHourlyJson: Value(_encodeWeatherHourly(weather)),
+              ),
+            );
+
+        if (affected > 0) {
+          updatedRows += affected;
+        }
+      }
+    });
+
+    return updatedRows;
   }
 
   Future<void> saveDayDetail({
@@ -388,12 +518,29 @@ class AppDatabase extends _$AppDatabase {
                   status: entry.value.status,
                   officialNote: entry.value.officialNote,
                   passDurationMinutes: Value(entry.value.passDurationMinutes),
+                  stepsCount: Value(entry.value.stepsCount),
+                  distanceMeters: Value(entry.value.distanceMeters),
                   brothersCount: Value(entry.value.brothersCount),
                   nazarenesCount: Value(entry.value.nazarenesCount),
                   brotherhoodName: entry.value.brotherhoodName,
                   brotherhoodSlug: entry.value.brotherhoodSlug,
                   brotherhoodColorHex: entry.value.brotherhoodColorHex,
+                  brotherhoodHistory: Value(entry.value.brotherhoodHistory),
+                  brotherhoodHeaderImageUrl: Value(
+                    entry.value.brotherhoodHeaderImageUrl,
+                  ),
+                  brotherhoodDressCode: Value(entry.value.brotherhoodDressCode),
+                  brotherhoodFiguresJson: Value(
+                    _encodeBrotherhoodFigures(entry.value.brotherhoodFigures),
+                  ),
+                  brotherhoodPasosJson: Value(
+                    _encodeBrotherhoodPasos(entry.value.brotherhoodPasos),
+                  ),
+                  brotherhoodShieldImageUrl: Value(
+                    entry.value.brotherhoodShieldImageUrl,
+                  ),
                   routeArgb: Value(entry.value.routeArgb),
+                  routeKml: Value(entry.value.routeKml),
                 ),
               )
               .toList(growable: false),
@@ -652,12 +799,25 @@ class AppDatabase extends _$AppDatabase {
               status: row.status,
               officialNote: row.officialNote,
               passDurationMinutes: row.passDurationMinutes,
+              stepsCount: row.stepsCount,
+              distanceMeters: row.distanceMeters,
               brothersCount: row.brothersCount,
               nazarenesCount: row.nazarenesCount,
               brotherhoodName: row.brotherhoodName,
               brotherhoodSlug: row.brotherhoodSlug,
               brotherhoodColorHex: row.brotherhoodColorHex,
+              brotherhoodHistory: row.brotherhoodHistory,
+              brotherhoodHeaderImageUrl: row.brotherhoodHeaderImageUrl,
+              brotherhoodDressCode: row.brotherhoodDressCode,
+              brotherhoodFigures: _decodeBrotherhoodFigures(
+                row.brotherhoodFiguresJson,
+              ),
+              brotherhoodPasos: _decodeBrotherhoodPasos(
+                row.brotherhoodPasosJson,
+              ),
+              brotherhoodShieldImageUrl: row.brotherhoodShieldImageUrl,
               routeArgb: row.routeArgb,
+              routeKml: row.routeKml,
               schedulePoints:
                   scheduleByEvent[row.position] ?? const <SchedulePoint>[],
               routePoints: routeByEvent[row.position] ?? const <RoutePoint>[],
@@ -753,6 +913,117 @@ class AppDatabase extends _$AppDatabase {
     required String resource,
   }) {
     return 'sync_resource_version_v1:$city:$year:$modeValue:$resource';
+  }
+}
+
+String? _encodeBrotherhoodFigures(List<BrotherhoodFigureInfo> values) {
+  if (values.isEmpty) {
+    return null;
+  }
+  final encoded = values
+      .map((item) => <String, dynamic>{
+            'name': item.name,
+            'description': item.description,
+          })
+      .toList(growable: false);
+  return jsonEncode(encoded);
+}
+
+String? _encodeBrotherhoodPasos(List<BrotherhoodPasoInfo> values) {
+  if (values.isEmpty) {
+    return null;
+  }
+  final encoded = values
+      .map((item) => <String, dynamic>{
+            'name': item.name,
+            'description': item.description,
+          })
+      .toList(growable: false);
+  return jsonEncode(encoded);
+}
+
+List<BrotherhoodFigureInfo> _decodeBrotherhoodFigures(String? raw) {
+  if (raw == null || raw.trim().isEmpty) {
+    return const [];
+  }
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) {
+      return const [];
+    }
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map((entry) => BrotherhoodFigureInfo(
+              name: (entry['name'] ?? '').toString().trim(),
+              description: (entry['description'] as String?)?.trim(),
+            ))
+        .where((item) => item.name.isNotEmpty)
+        .toList(growable: false);
+  } catch (_) {
+    return const [];
+  }
+}
+
+List<BrotherhoodPasoInfo> _decodeBrotherhoodPasos(String? raw) {
+  if (raw == null || raw.trim().isEmpty) {
+    return const [];
+  }
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) {
+      return const [];
+    }
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map((entry) => BrotherhoodPasoInfo(
+              name: (entry['name'] ?? '').toString().trim(),
+              description: (entry['description'] as String?)?.trim(),
+            ))
+        .where((item) => item.name.isNotEmpty)
+        .toList(growable: false);
+  } catch (_) {
+    return const [];
+  }
+}
+
+String? _encodeWeatherHourly(DayWeatherSummary? weather) {
+  if (weather == null || weather.hourly.isEmpty) {
+    return null;
+  }
+
+  final encoded = weather.hourly
+      .map(
+        (entry) => <String, dynamic>{
+          'hour_label': entry.hourLabel,
+          'icon_code': entry.iconCode,
+          'condition_label': entry.conditionLabel,
+          'temperature_c': entry.temperatureC,
+          'precipitation_probability': entry.precipitationProbability,
+        },
+      )
+      .toList(growable: false);
+
+  return jsonEncode(encoded);
+}
+
+List<DayWeatherHourlyPoint> _decodeWeatherHourly(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return const <DayWeatherHourlyPoint>[];
+  }
+
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List<dynamic>) {
+      return const <DayWeatherHourlyPoint>[];
+    }
+
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(DayWeatherHourlyPoint.fromJson)
+        .where((entry) => entry.hourLabel.isNotEmpty)
+        .toList(growable: false);
+  } catch (_) {
+    return const <DayWeatherHourlyPoint>[];
   }
 }
 

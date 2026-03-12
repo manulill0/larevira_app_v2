@@ -61,15 +61,22 @@ class DayProcessionEvent {
     required this.status,
     required this.officialNote,
     required this.passDurationMinutes,
+    this.stepsCount,
+    this.distanceMeters,
     this.brothersCount,
     this.nazarenesCount,
     required this.brotherhoodName,
     required this.brotherhoodSlug,
     required this.brotherhoodColorHex,
+    this.brotherhoodHistory,
+    this.brotherhoodDressCode,
+    this.brotherhoodFigures = const <BrotherhoodFigureInfo>[],
+    this.brotherhoodPasos = const <BrotherhoodPasoInfo>[],
     this.brotherhoodShortName,
     this.brotherhoodHeaderImageUrl,
     this.brotherhoodShieldImageUrl,
     required this.routeArgb,
+    this.routeKml,
     required this.schedulePoints,
     required this.routePoints,
   });
@@ -77,15 +84,22 @@ class DayProcessionEvent {
   final String status;
   final String officialNote;
   final int? passDurationMinutes;
+  final int? stepsCount;
+  final int? distanceMeters;
   final int? brothersCount;
   final int? nazarenesCount;
   final String brotherhoodName;
   final String brotherhoodSlug;
   final String brotherhoodColorHex;
+  final String? brotherhoodHistory;
+  final String? brotherhoodDressCode;
+  final List<BrotherhoodFigureInfo> brotherhoodFigures;
+  final List<BrotherhoodPasoInfo> brotherhoodPasos;
   final String? brotherhoodShortName;
   final String? brotherhoodHeaderImageUrl;
   final String? brotherhoodShieldImageUrl;
   final String? routeArgb;
+  final String? routeKml;
   final List<SchedulePoint> schedulePoints;
   final List<RoutePoint> routePoints;
 
@@ -93,15 +107,22 @@ class DayProcessionEvent {
     String? status,
     String? officialNote,
     int? passDurationMinutes,
+    int? stepsCount,
+    int? distanceMeters,
     int? brothersCount,
     int? nazarenesCount,
     String? brotherhoodName,
     String? brotherhoodSlug,
     String? brotherhoodColorHex,
+    String? brotherhoodHistory,
+    String? brotherhoodDressCode,
+    List<BrotherhoodFigureInfo>? brotherhoodFigures,
+    List<BrotherhoodPasoInfo>? brotherhoodPasos,
     String? brotherhoodShortName,
     String? brotherhoodHeaderImageUrl,
     String? brotherhoodShieldImageUrl,
     String? routeArgb,
+    String? routeKml,
     List<SchedulePoint>? schedulePoints,
     List<RoutePoint>? routePoints,
   }) {
@@ -109,17 +130,24 @@ class DayProcessionEvent {
       status: status ?? this.status,
       officialNote: officialNote ?? this.officialNote,
       passDurationMinutes: passDurationMinutes ?? this.passDurationMinutes,
+      stepsCount: stepsCount ?? this.stepsCount,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
       brothersCount: brothersCount ?? this.brothersCount,
       nazarenesCount: nazarenesCount ?? this.nazarenesCount,
       brotherhoodName: brotherhoodName ?? this.brotherhoodName,
       brotherhoodSlug: brotherhoodSlug ?? this.brotherhoodSlug,
       brotherhoodColorHex: brotherhoodColorHex ?? this.brotherhoodColorHex,
+      brotherhoodHistory: brotherhoodHistory ?? this.brotherhoodHistory,
+      brotherhoodDressCode: brotherhoodDressCode ?? this.brotherhoodDressCode,
+      brotherhoodFigures: brotherhoodFigures ?? this.brotherhoodFigures,
+      brotherhoodPasos: brotherhoodPasos ?? this.brotherhoodPasos,
       brotherhoodShortName: brotherhoodShortName ?? this.brotherhoodShortName,
       brotherhoodHeaderImageUrl:
           brotherhoodHeaderImageUrl ?? this.brotherhoodHeaderImageUrl,
       brotherhoodShieldImageUrl:
           brotherhoodShieldImageUrl ?? this.brotherhoodShieldImageUrl,
       routeArgb: routeArgb ?? this.routeArgb,
+      routeKml: routeKml ?? this.routeKml,
       schedulePoints: schedulePoints ?? this.schedulePoints,
       routePoints: routePoints ?? this.routePoints,
     );
@@ -143,11 +171,20 @@ class DayProcessionEvent {
       status: (json['status'] ?? 'scheduled') as String,
       officialNote: (json['official_note'] ?? '') as String,
       passDurationMinutes: (json['pass_duration_minutes'] as num?)?.toInt(),
+      stepsCount: _resolveStepsCount(json, brotherhood),
+      distanceMeters: (itinerary['distance_meters'] as num?)?.toInt(),
       brothersCount: (json['brothers_count'] as num?)?.toInt(),
       nazarenesCount: (json['nazarenes_count'] as num?)?.toInt(),
       brotherhoodName: (brotherhood['name'] ?? 'Hermandad') as String,
       brotherhoodSlug: (brotherhood['slug'] ?? '') as String,
       brotherhoodColorHex: (brotherhood['color_hex'] ?? '#8B1E3F') as String,
+      brotherhoodHistory: _firstNonEmptyString(
+        brotherhood,
+        const ['history', 'historia', 'about'],
+      ),
+      brotherhoodDressCode: _resolveDressCode(brotherhood),
+      brotherhoodFigures: _resolveBrotherhoodFigures(brotherhood['figures']),
+      brotherhoodPasos: _resolveBrotherhoodPasos(brotherhood['pasos']),
       brotherhoodShortName: _firstNonEmptyString(
         brotherhood,
         const ['short_name', 'shortName', 'display_name', 'displayName'],
@@ -165,6 +202,8 @@ class DayProcessionEvent {
       brotherhoodShieldImageUrl: _firstNonEmptyString(
         brotherhood,
         const [
+          'shield_image_url',
+          'shieldImageUrl',
           'shield_url',
           'emblem_url',
           'coat_of_arms_url',
@@ -173,6 +212,7 @@ class DayProcessionEvent {
         ],
       ),
       routeArgb: _resolveItineraryArgb(itinerary, rawKml),
+      routeKml: rawKml.isEmpty ? null : rawKml,
       schedulePoints: rawSchedulePoints
           .whereType<Map<String, dynamic>>()
           .map(SchedulePoint.fromJson)
@@ -182,6 +222,105 @@ class DayProcessionEvent {
           : _parseRoutePointsFromKml(rawKml),
     );
   }
+}
+
+class BrotherhoodFigureInfo {
+  const BrotherhoodFigureInfo({
+    required this.name,
+    this.description,
+  });
+
+  final String name;
+  final String? description;
+}
+
+class BrotherhoodPasoInfo {
+  const BrotherhoodPasoInfo({
+    required this.name,
+    this.description,
+  });
+
+  final String name;
+  final String? description;
+}
+
+int? _resolveStepsCount(
+  Map<String, dynamic> event,
+  Map<String, dynamic> brotherhood,
+) {
+  for (final source in [event, brotherhood]) {
+    for (final key in const [
+      'steps_count',
+      'pasos_count',
+      'number_of_steps',
+      'pasos',
+      'steps',
+    ]) {
+      final value = source[key];
+      if (value is num) {
+        return value.toInt();
+      }
+      if (value is String) {
+        final parsed = int.tryParse(value.trim());
+        if (parsed != null) {
+          return parsed;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+String? _resolveDressCode(Map<String, dynamic> brotherhood) {
+  final direct = _firstNonEmptyString(
+    brotherhood,
+    const ['dress_code', 'dressCode'],
+  );
+  if (direct != null) {
+    return direct;
+  }
+  final metadata = brotherhood['metadata'];
+  if (metadata is Map<String, dynamic>) {
+    return _firstNonEmptyString(
+      metadata,
+      const ['dress_code', 'dressCode', 'tunica', 'tunicas'],
+    );
+  }
+  return null;
+}
+
+List<BrotherhoodFigureInfo> _resolveBrotherhoodFigures(Object? raw) {
+  if (raw is! List<dynamic>) {
+    return const [];
+  }
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map((entry) => BrotherhoodFigureInfo(
+            name: (entry['name'] ?? '').toString().trim(),
+            description: _firstNonEmptyString(
+              entry,
+              const ['description', 'text', 'content'],
+            ),
+          ))
+      .where((item) => item.name.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<BrotherhoodPasoInfo> _resolveBrotherhoodPasos(Object? raw) {
+  if (raw is! List<dynamic>) {
+    return const [];
+  }
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map((entry) => BrotherhoodPasoInfo(
+            name: (entry['name'] ?? '').toString().trim(),
+            description: _firstNonEmptyString(
+              entry,
+              const ['description', 'text', 'content'],
+            ),
+          ))
+      .where((item) => item.name.isNotEmpty)
+      .toList(growable: false);
 }
 
 String? _firstNonEmptyString(

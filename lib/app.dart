@@ -18,14 +18,19 @@ class LaReviraApp extends ConsumerStatefulWidget {
   ConsumerState<LaReviraApp> createState() => _LaReviraAppState();
 }
 
-class _LaReviraAppState extends ConsumerState<LaReviraApp> {
+class _LaReviraAppState extends ConsumerState<LaReviraApp>
+    with WidgetsBindingObserver {
+  static const _liveWeatherInterval = Duration(minutes: 5);
   PushNotificationsController? _pushController;
   StreamSubscription<ProcessionStatusUpdate>? _pushUpdatesSubscription;
+  Timer? _liveWeatherTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future<void>.microtask(_initializePushNotifications);
+    Future<void>.microtask(_initializeLiveWeatherRefresh);
   }
 
   Future<void> _initializePushNotifications() async {
@@ -41,7 +46,8 @@ class _LaReviraAppState extends ConsumerState<LaReviraApp> {
     _pushController = controller;
     _pushUpdatesSubscription = controller.updates.listen((update) {
       final currentYear = ref.read(editionYearProvider);
-      if (update.citySlug != appInstance.citySlug || update.year != currentYear) {
+      if (update.citySlug != appInstance.citySlug ||
+          update.year != currentYear) {
         return;
       }
 
@@ -50,8 +56,28 @@ class _LaReviraAppState extends ConsumerState<LaReviraApp> {
     await controller.initialize();
   }
 
+  Future<void> _initializeLiveWeatherRefresh() async {
+    await ref.read(syncControllerProvider.notifier).syncLiveWeather();
+
+    _liveWeatherTimer?.cancel();
+    _liveWeatherTimer = Timer.periodic(_liveWeatherInterval, (_) {
+      unawaited(ref.read(syncControllerProvider.notifier).syncLiveWeather());
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        ref.read(syncControllerProvider.notifier).syncLiveWeather(force: true),
+      );
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _liveWeatherTimer?.cancel();
     _pushUpdatesSubscription?.cancel();
     unawaited(_pushController?.dispose() ?? Future<void>.value());
     super.dispose();
@@ -80,7 +106,13 @@ class _LaReviraAppState extends ConsumerState<LaReviraApp> {
             theme: Theme.of(context),
             screenSize: mediaQuery.size,
           ),
-          child: child,
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            left: true,
+            right: true,
+            child: child,
+          ),
         );
       },
       routerConfig: router,

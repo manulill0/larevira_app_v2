@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/day_index_item.dart';
+import '../../../core/weather/weather_ui.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_page_surfaces.dart';
@@ -206,6 +207,10 @@ class _JornadaCard extends StatelessWidget {
                           color: colorScheme.onSurface.withValues(alpha: 0.9),
                         ),
                       ),
+                      if (item.weather?.hasCompactSummary ?? false) ...[
+                        const SizedBox(height: 3),
+                        _DayWeatherCompactRow(weather: item.weather!),
+                      ],
                     ],
                   ),
                 ),
@@ -232,6 +237,33 @@ class _LoadingState extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 32),
       child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _DayWeatherCompactRow extends StatelessWidget {
+  const _DayWeatherCompactRow({required this.weather});
+
+  final DayWeatherSummary weather;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurface.withValues(alpha: 0.82);
+
+    return Row(
+      children: [
+        Icon(
+          weatherIconForCode(weather.iconCode),
+          size: 16,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          formatTemperatureMinMax(weather.tempMinC, weather.tempMaxC),
+          style: theme.textTheme.bodySmall?.copyWith(color: color),
+        ),
+      ],
     );
   }
 }

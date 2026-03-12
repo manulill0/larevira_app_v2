@@ -8,6 +8,7 @@ import '../../../core/analytics/app_analytics.dart';
 import '../../../core/config/app_instance_controller.dart';
 import '../../../core/config/debug_flags.dart';
 import '../../../core/local/app_database.dart';
+import '../../../core/media/private_image_cache.dart';
 import '../../../core/models/day_detail.dart';
 import '../../../core/models/day_index_item.dart';
 import '../../../core/models/sync_changes.dart';
@@ -55,6 +56,9 @@ class SyncState {
 }
 
 class SyncController extends Notifier<SyncState> {
+  static const _liveWeatherMinInterval = Duration(minutes: 5);
+  bool _isWeatherSyncing = false;
+
   @override
   SyncState build() {
     final appInstance = ref.watch(appInstanceProvider);
@@ -83,6 +87,92 @@ class SyncController extends Notifier<SyncState> {
     }
 
     await _runSync(isInitialLaunch: false, forceRefresh: true);
+  }
+
+  Future<void> syncLiveWeather({bool force = false}) async {
+    if (state.isSyncing || _isWeatherSyncing) {
+      return;
+    }
+
+    final appInstance = ref.read(appInstanceProvider);
+    final year = ref.read(editionYearProvider);
+    final apiClient = ref.read(lareviraApiClientProvider);
+    final appDatabase = ref.read(appDatabaseProvider);
+    const mode = 'all';
+
+    _isWeatherSyncing = true;
+    try {
+      if (!force) {
+        final lastSyncedAt = await _readLastLiveWeatherSync(
+          appDatabase: appDatabase,
+          citySlug: appInstance.citySlug,
+          year: year,
+          mode: mode,
+        );
+        if (lastSyncedAt != null &&
+            DateTime.now().difference(lastSyncedAt) < _liveWeatherMinInterval) {
+          return;
+        }
+      }
+
+      final response = await apiClient.fetchScoped(
+        appInstance.citySlug,
+        year,
+        '/day-weather',
+      );
+
+      final payload = response.data;
+      if (payload is! Map<String, dynamic>) {
+        return;
+      }
+
+      final rawItems = payload['data'];
+      if (rawItems is! List<dynamic>) {
+        return;
+      }
+
+      final weatherBySlug = <String, DayWeatherSummary>{};
+      for (final rawItem in rawItems) {
+        if (rawItem is! Map<String, dynamic>) {
+          continue;
+        }
+        final slug = (rawItem['slug'] ?? '').toString().trim();
+        if (slug.isEmpty) {
+          continue;
+        }
+        final weatherJson = rawItem['day_weather'];
+        final weather = weatherJson is Map<String, dynamic>
+            ? DayWeatherSummary.fromJson(weatherJson)
+            : const DayWeatherSummary();
+        weatherBySlug[slug] = weather;
+      }
+
+      if (weatherBySlug.isEmpty) {
+        return;
+      }
+
+      final updatedRows = await appDatabase.applyDayWeatherUpdates(
+        city: appInstance.citySlug,
+        year: year,
+        modeValue: mode,
+        weatherBySlug: weatherBySlug,
+      );
+
+      await _saveLastLiveWeatherSync(
+        appDatabase: appDatabase,
+        citySlug: appInstance.citySlug,
+        year: year,
+        mode: mode,
+      );
+
+      if (updatedRows > 0) {
+        ref.invalidate(jornadasProvider);
+      }
+    } catch (_) {
+      // Silent by design: this is a lightweight live refresh.
+    } finally {
+      _isWeatherSyncing = false;
+    }
   }
 
   Future<void> _runSync({
@@ -288,6 +378,15 @@ class SyncController extends Notifier<SyncState> {
         );
       }
 
+      if (forceRefresh) {
+        await _prefetchBrotherhoodImagesFromLocal(
+          appDatabase: appDatabase,
+          citySlug: appInstance.citySlug,
+          year: year,
+          mode: mode,
+        );
+      }
+
       state = state.copyWith(
         isSyncing: false,
         isInitialSyncComplete: isInitialLaunch
@@ -350,6 +449,41 @@ class SyncController extends Notifier<SyncState> {
       case _SyncType.full:
         return 'full';
     }
+  }
+
+  String _liveWeatherSyncKey({
+    required String citySlug,
+    required int year,
+    required String mode,
+  }) {
+    return 'live_weather_last_sync_v1:$citySlug:$year:$mode';
+  }
+
+  Future<DateTime?> _readLastLiveWeatherSync({
+    required AppDatabase appDatabase,
+    required String citySlug,
+    required int year,
+    required String mode,
+  }) async {
+    final raw = await appDatabase.readSetting(
+      _liveWeatherSyncKey(citySlug: citySlug, year: year, mode: mode),
+    );
+    if (raw == null || raw.trim().isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(raw);
+  }
+
+  Future<void> _saveLastLiveWeatherSync({
+    required AppDatabase appDatabase,
+    required String citySlug,
+    required int year,
+    required String mode,
+  }) {
+    return appDatabase.saveSetting(
+      key: _liveWeatherSyncKey(citySlug: citySlug, year: year, mode: mode),
+      value: DateTime.now().toIso8601String(),
+    );
   }
 
   void _trackSyncAnalytics({
@@ -664,8 +798,15 @@ class SyncController extends Notifier<SyncState> {
         }
         details.add(DayDetail.fromJson(item));
       }
-      return _DayBatchResult(
+      final enrichedDetails = await _enrichDayDetailsWithBrotherhoodData(
+        apiClient: apiClient,
+        citySlug: citySlug,
+        year: year,
         details: details,
+        metrics: metrics,
+      );
+      return _DayBatchResult(
+        details: enrichedDetails,
         missingSlugs: missingSlugs.toList(growable: false),
         missingEventIds: missingEventIds.toList(growable: false),
       );
@@ -682,8 +823,15 @@ class SyncController extends Notifier<SyncState> {
           }
           details.add(DayDetail.fromJson(item));
         }
-        return _DayBatchResult(
+        final enrichedDetails = await _enrichDayDetailsWithBrotherhoodData(
+          apiClient: apiClient,
+          citySlug: citySlug,
+          year: year,
           details: details,
+          metrics: metrics,
+        );
+        return _DayBatchResult(
+          details: enrichedDetails,
           missingSlugs: missingSlugs.toList(growable: false),
           missingEventIds: missingEventIds.toList(growable: false),
         );
@@ -707,8 +855,16 @@ class SyncController extends Notifier<SyncState> {
       }
     }
 
-    return _DayBatchResult(
+    final enrichedDetails = await _enrichDayDetailsWithBrotherhoodData(
+      apiClient: apiClient,
+      citySlug: citySlug,
+      year: year,
       details: details,
+      metrics: metrics,
+    );
+
+    return _DayBatchResult(
+      details: enrichedDetails,
       missingSlugs: missingSlugs.toList(growable: false),
       missingEventIds: missingEventIds.toList(growable: false),
     );
@@ -763,10 +919,302 @@ class SyncController extends Notifier<SyncState> {
       }
 
       final data = (payload['data'] as Map<String, dynamic>? ?? const {});
-      return DayDetail.fromJson(data);
+      final detail = DayDetail.fromJson(data);
+      final enriched = await _enrichDayDetailsWithBrotherhoodData(
+        apiClient: apiClient,
+        citySlug: citySlug,
+        year: year,
+        details: [detail],
+        metrics: metrics,
+      );
+      if (enriched.isEmpty) {
+        return detail;
+      }
+      return enriched.first;
     } catch (_) {
       return null;
     }
+  }
+
+  Future<List<DayDetail>> _enrichDayDetailsWithBrotherhoodData({
+    required LareviraApiClient apiClient,
+    required String citySlug,
+    required int year,
+    required List<DayDetail> details,
+    required _SyncMetrics metrics,
+  }) async {
+    if (details.isEmpty) {
+      return details;
+    }
+
+    final slugs = <String>{
+      for (final detail in details)
+        for (final event in detail.processionEvents)
+          if (event.brotherhoodSlug.trim().isNotEmpty) event.brotherhoodSlug,
+    }.toList(growable: false);
+
+    if (slugs.isEmpty) {
+      return details;
+    }
+
+    try {
+      final summaries = await _fetchBrotherhoodBatchSummaries(
+        apiClient: apiClient,
+        citySlug: citySlug,
+        year: year,
+        slugs: slugs,
+        metrics: metrics,
+      );
+      if (summaries.isEmpty) {
+        return details;
+      }
+
+      return details
+          .map((detail) => _applyBrotherhoodSummaries(detail, summaries))
+          .toList(growable: false);
+    } catch (_) {
+      return details;
+    }
+  }
+
+  Future<Map<String, _BrotherhoodSummary>> _fetchBrotherhoodBatchSummaries({
+    required LareviraApiClient apiClient,
+    required String citySlug,
+    required int year,
+    required List<String> slugs,
+    required _SyncMetrics metrics,
+  }) async {
+    if (slugs.isEmpty) {
+      return const {};
+    }
+
+    final response = await _retryRequest(() {
+      return apiClient.fetchScoped(
+        citySlug,
+        year,
+        '/brotherhoods-batch',
+        queryParameters: {'slugs': slugs.join(',')},
+      );
+    }, metrics: metrics);
+
+    final payload = response.data;
+    if (payload is! Map<String, dynamic>) {
+      return const {};
+    }
+
+    final data = payload['data'];
+    if (data is! List<dynamic>) {
+      return const {};
+    }
+
+    final summaries = <String, _BrotherhoodSummary>{};
+    for (final item in data) {
+      if (item is! Map<String, dynamic>) {
+        continue;
+      }
+      final slug = (item['slug'] ?? '').toString().trim();
+      if (slug.isEmpty) {
+        continue;
+      }
+      final shieldImageUrl = _pickString(item, const [
+        'shield_image_url',
+        'shield_url',
+        'logo_url',
+        'badge_url',
+      ]);
+      final headerImageUrl = _pickString(item, const [
+        'header_image_url',
+        'header_image',
+        'cover_image_url',
+        'cover_url',
+      ]);
+      final history = _pickString(item, const ['history', 'historia', 'about']);
+      final dressCode = _pickString(item, const ['dress_code', 'dressCode']) ??
+          _pickString(
+            (item['metadata'] as Map<String, dynamic>? ?? const {}),
+            const ['dress_code', 'dressCode'],
+          );
+      final figures = _extractNamedDescriptions(item['figures']);
+      final pasos = _extractPasoDescriptions(item['pasos']);
+      final stepsCount = _pickInt(item, const [
+        'steps_count',
+        'pasos_count',
+        'number_of_steps',
+      ]) ?? _countStepsList(item['pasos']);
+      summaries[slug] = _BrotherhoodSummary(
+        shieldImageUrl: shieldImageUrl,
+        headerImageUrl: headerImageUrl,
+        history: history,
+        dressCode: dressCode,
+        figures: figures,
+        pasos: pasos,
+        stepsCount: stepsCount,
+      );
+    }
+    return summaries;
+  }
+
+  DayDetail _applyBrotherhoodSummaries(
+    DayDetail detail,
+    Map<String, _BrotherhoodSummary> summaries,
+  ) {
+    final events = detail.processionEvents.map((event) {
+      final summary = summaries[event.brotherhoodSlug];
+      if (summary == null) {
+        return event;
+      }
+      return event.copyWith(
+        stepsCount: event.stepsCount ?? summary.stepsCount,
+        brotherhoodHistory: event.brotherhoodHistory ?? summary.history,
+        brotherhoodHeaderImageUrl:
+            event.brotherhoodHeaderImageUrl ?? summary.headerImageUrl,
+        brotherhoodDressCode:
+            event.brotherhoodDressCode ?? summary.dressCode,
+        brotherhoodFigures: event.brotherhoodFigures.isNotEmpty
+            ? event.brotherhoodFigures
+            : summary.figures,
+        brotherhoodPasos:
+            event.brotherhoodPasos.isNotEmpty ? event.brotherhoodPasos : summary.pasos,
+        brotherhoodShieldImageUrl:
+            event.brotherhoodShieldImageUrl ?? summary.shieldImageUrl,
+      );
+    }).toList(growable: false);
+    return detail.copyWith(processionEvents: events);
+  }
+
+  int? _countStepsList(Object? rawPasos) {
+    if (rawPasos is! List<dynamic>) {
+      return null;
+    }
+    return rawPasos.whereType<Map<String, dynamic>>().length;
+  }
+
+  List<BrotherhoodFigureInfo> _extractNamedDescriptions(Object? raw) {
+    if (raw is! List<dynamic>) {
+      return const [];
+    }
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (entry) => BrotherhoodFigureInfo(
+            name: (entry['name'] ?? '').toString().trim(),
+            description: _pickString(
+              entry,
+              const ['description', 'text', 'content'],
+            ),
+          ),
+        )
+        .where((item) => item.name.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  List<BrotherhoodPasoInfo> _extractPasoDescriptions(Object? raw) {
+    if (raw is! List<dynamic>) {
+      return const [];
+    }
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (entry) => BrotherhoodPasoInfo(
+            name: (entry['name'] ?? '').toString().trim(),
+            description: _pickString(
+              entry,
+              const ['description', 'text', 'content'],
+            ),
+          ),
+        )
+        .where((item) => item.name.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<void> _prefetchBrotherhoodImagesFromLocal({
+    required AppDatabase appDatabase,
+    required String citySlug,
+    required int year,
+    required String mode,
+  }) async {
+    final days = await appDatabase.getDays(
+      city: citySlug,
+      year: year,
+      modeValue: mode,
+    );
+    if (days.isEmpty) {
+      return;
+    }
+
+    final shieldUrls = <String>{};
+    final headerUrls = <String>{};
+
+    for (final day in days) {
+      final detail = await appDatabase.getDayDetail(
+        city: citySlug,
+        year: year,
+        modeValue: mode,
+        daySlugValue: day.slug,
+      );
+      if (detail == null) {
+        continue;
+      }
+      for (final event in detail.processionEvents) {
+        final shield = event.brotherhoodShieldImageUrl?.trim();
+        if (_isHttpUrl(shield)) {
+          shieldUrls.add(shield!);
+        }
+        final header = event.brotherhoodHeaderImageUrl?.trim();
+        if (_isHttpUrl(header)) {
+          headerUrls.add(header!);
+        }
+      }
+    }
+
+    final tasks = <Future<void>>[
+      for (final url in shieldUrls)
+        PrivateImageCache.getOrFetchShield(url).then((_) {}),
+      for (final url in headerUrls)
+        PrivateImageCache.getOrFetchHeader(url).then((_) {}),
+    ];
+    if (tasks.isNotEmpty) {
+      await Future.wait(tasks);
+    }
+  }
+
+  bool _isHttpUrl(String? value) {
+    if (value == null || value.isEmpty) {
+      return false;
+    }
+    final uri = Uri.tryParse(value);
+    if (uri == null) {
+      return false;
+    }
+    return uri.hasScheme &&
+        (uri.scheme.toLowerCase() == 'http' ||
+            uri.scheme.toLowerCase() == 'https');
+  }
+
+  String? _pickString(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    return null;
+  }
+
+  int? _pickInt(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value is num) {
+        return value.toInt();
+      }
+      if (value is String) {
+        final parsed = int.tryParse(value.trim());
+        if (parsed != null) {
+          return parsed;
+        }
+      }
+    }
+    return null;
   }
 
   Future<List<DayIndexItem>> _fetchDayIndex({
@@ -1012,6 +1460,26 @@ class _DetailSyncResult {
 
   final int synced;
   final int failures;
+}
+
+class _BrotherhoodSummary {
+  const _BrotherhoodSummary({
+    required this.shieldImageUrl,
+    required this.headerImageUrl,
+    required this.history,
+    required this.dressCode,
+    required this.figures,
+    required this.pasos,
+    required this.stepsCount,
+  });
+
+  final String? shieldImageUrl;
+  final String? headerImageUrl;
+  final String? history;
+  final String? dressCode;
+  final List<BrotherhoodFigureInfo> figures;
+  final List<BrotherhoodPasoInfo> pasos;
+  final int? stepsCount;
 }
 
 class _DayBatchResult {
